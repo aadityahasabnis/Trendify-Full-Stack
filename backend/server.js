@@ -19,7 +19,7 @@ connectCloudinary()
 app.use(express.json());
 app.use(cors());
 
-const allowedOrigins = ['http://localhost:5174', 'http://localhost:5173' ]; // Add your frontend URLs
+const allowedOrigins = ['http://localhost:5174', 'http://localhost:5173', 'https://trendify-admin-rose.vercel.app', 'https://trendify-frontend-vercel.vercel.app' ]; // Add your frontend URLs
 
 const corsOptions = {
     origin: (origin, callback) => {
