@@ -13,31 +13,32 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import { ToastContainer } from 'react-toastify';
 import Verify from "./pages/Verify";
+import UserProfile from "./pages/UserProfile";
+import ResetPassword from "./pages/ResetPassword"; // Import the ResetPassword component
 
-
-const App = () => {
-	return (
-		// px-4 sm:px-[1.5vw] md:px-[1.5vw] lg:px-[1.5vw]
-		<div className="px-4 sm:px-[1.5vw] md:px-[1.5vw] lg:px-[1.5vw]">
-			<ToastContainer />
-			<Navbar />
-			<Routes>
-				<Route path="/" element={<Home />} />
-				<Route path="/collections" element={<Collection />} />
-				<Route path="/about" element={<About />} />
-				<Route path="/contact" element={<Contact />} />
-				{/* <Route path='/' element={<About/>} /> */}
-				<Route path="/product/:productId" element={<Product />} />
-				<Route path="/cart" element={<Cart />} />
-				<Route path="/login" element={<Login />} />
-				<Route path="/place-order" element={<PlaceOrder />} />
-				{/* <Route path='/' element={<Login/>} /> */}
-				<Route path="/orders" element={<Orders />} />
-				<Route path="/verify" element={<Verify />} />
-			</Routes>
-			<Footer />
-		</div>
-	);
-};
+function App() {
+  return (
+    <div>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/collections" element={<Collection />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
+        {/* <Route path='/' element={<About/>} /> */}
+        <Route path="/product/:productId" element={<Product />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/place-order" element={<PlaceOrder />} />
+        {/* <Route path='/' element={<Login/>} /> */}
+        <Route path="/orders" element={<Orders />} />
+        <Route path="/verify" element={<Verify />} />
+        <Route path="/profile" element={<UserProfile />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} /> {/* Add this route */}
+      </Routes>
+      <Footer />
+    </div>
+  );
+}
 
 export default App;

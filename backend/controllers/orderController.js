@@ -1,6 +1,7 @@
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import Stripe from 'stripe'
+import nodemailer from 'nodemailer'
 
 // Global variables
 const currency = 'inr';
@@ -27,6 +28,72 @@ const placeOrder = async (req, res) => {
         await newOrder.save();
 
         await userModel.findByIdAndUpdate(userId, { cartData: {} })
+
+        // Find user email
+        const user = await userModel.findById(userId);
+        // Send order confirmation email
+        const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+                user: process.env.EMAIL_USERNAME,
+                pass: process.env.EMAIL_PASSWORD,
+            },
+            tls: {
+                rejectUnauthorized: false,
+            },
+            secure: false,
+        });
+        const mailOptions = {
+            from: process.env.EMAIL_USERNAME,
+            to: user.email,
+            subject: "🧾 Order Confirmation - Trendify",
+            html: `
+                <div style="max-width:600px;margin:0 auto;padding:20px;background-color:#f4f4f4;font-family:Arial,sans-serif;">
+                    <div style="background:#ffffff;padding:30px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.05);color:#333;">
+                        <h1 style="color:#6c63ff;font-size:24px;text-align:center;">🛍️ Thank you for your order!</h1>
+        
+                        <p style="font-size:16px;line-height:1.6;text-align:center;">
+                            Your order has been placed successfully and will be delivered within <strong>3 days</strong>. 🚚
+                        </p>
+        
+                        <h2 style="font-size:18px;color:#6c63ff;margin-top:30px;">🧾 Order Summary:</h2>
+                        <div style="font-size:15px;line-height:1.6;background-color:#f9f9f9;padding:15px;border-radius:6px;">
+                            ${orderDetails.items.map(item => `
+                                <div style="margin-bottom:10px;">
+                                    <strong>${item.name}</strong><br/>
+                                    Quantity: ${item.quantity}<br/>
+                                    Price: ₹${item.price}
+                                </div>
+                            `).join('')}
+                            <hr style="border: none; border-top: 1px solid #ddd;" />
+                            <strong>Total: ₹${orderDetails.total}</strong>
+                        </div>
+        
+                        <div style="text-align:center;margin:30px 0;">
+                            <a href="https://trendify.com/orders" 
+                               style="display:inline-block;padding:12px 24px;background-color:#6c63ff;color:#fff;
+                                      border-radius:6px;text-decoration:none;font-weight:bold;font-size:16px;">
+                                📦 Track Your Order
+                            </a>
+                        </div>
+        
+                        <p style="font-size:14px;color:#555;text-align:center;">
+                            Got questions? Reach out to us at 
+                            <a href="mailto:support@trendify.com" style="color:#6c63ff;">support@trendify.com</a>
+                        </p>
+        
+                        <hr style="margin:30px 0;border:none;border-top:1px solid #eee;" />
+        
+                        <p style="font-size:13px;color:#999;text-align:center;">
+                            Thank you for shopping with Trendify ❤️
+                        </p>
+                    </div>
+                </div>
+            `,
+        };
+        
+        await transporter.sendMail(mailOptions);
+
 
         res.status(200).json({ success: true, message: 'Order placed successfully', orderId: newOrder._id });
     } catch (error) {

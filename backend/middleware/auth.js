@@ -1,24 +1,18 @@
 import jwt from 'jsonwebtoken';
-import { toast } from 'react-toastify';
 
 const authUser = async (req, res, next) => {
-    const { token } = req.headers;
-    if (!token) {
-        toast.error("Login First")
-        return res.status(401).json({ success: false, message: "Non authorized Login again" });
-    }
-
     try {
+        const token = req.headers.token;
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'No token provided' });
+        }
 
-        const token_decode = jwt.verify(token, process.env.JWT_SECRET);
-        req.body.userId = token_decode.id;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = { id: decoded.id }; // Add user to request object
         next();
     } catch (error) {
-        console.log(error);
-        toast.error("Login First")
-        return res.status(401).json({ success: false, message: "Non authorized Login again" });
-
+        res.status(401).json({ success: false, message: 'Invalid token' });
     }
-}
+};
 
 export default authUser;

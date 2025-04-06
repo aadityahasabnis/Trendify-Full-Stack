@@ -81,12 +81,21 @@ const removeProduct = async (req, res) => {
 const singleProduct = async (req, res) => {
     try {
         const { productId } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return res.status(400).json({ success: false, message: "Invalid product ID" });
+        }
+
         const product = await productModel.findById(productId);
-        res.json({ success: true, product });
+        if (!product) {
+            return res.status(404).json({ success: false, message: "Product not found" });
+        }
+
+        res.status(200).json({ success: true, product });
     } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message })
+        console.error("Error fetching single product:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch product" });
     }
-}
+};
 
 export { addProduct, listProduct, removeProduct, singleProduct }

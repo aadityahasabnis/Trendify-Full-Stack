@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
     name: {
-        type:String,
+        type: String,
         required: true
     },
     email: {
@@ -10,17 +10,28 @@ const userSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
-    password : {
+    password: {
         type: String,
         required: true
     },
+    resetPasswordToken: {
+        type: String,
+        default: null
+    },
+    resetPasswordExpires: {
+        type: Date,
+        default: null
+    },
     cartData: {
-        type:Object,
+        type: Object,
         default: {}
     }
 
-},{minimize: false})
+}, {
+    minimize: false,
+    timestamps: true // This adds createdAt and updatedAt fields automatically
+})
 
-const userModel = mongoose.models.user || mongoose.model("User", userSchema);
+const userModel = mongoose.models.User || mongoose.model("User", userSchema);
 
 export default userModel;

@@ -70,33 +70,53 @@ const Navbar = () => {
 
 			{/* Right Side Icons */}
 			<div className="flex items-center gap-6">
-				{/* Profile Icon */}
-				{!searchOpen && (
-					<div className="relative group">
-						<Link to={'/login'}>
-							<img className="w-8 h-8 cursor-pointer" src={assets.profile_icon} alt="Profile" />
-						</Link>
-						{token &&
-							<div className="absolute right-0 hidden pt-4 transition group-hover:block z-50">
-								<div className="flex flex-col gap-2 px-5 py-3 text-gray-500 bg-white rounded shadow-lg w-36">
-									<p className="cursor-pointer hover:text-black">My Profile</p>
-									<p onClick={()=>navigate('/orders')} className="cursor-pointer hover:text-black">Orders</p>
-									<p onClick={logout} className="cursor-pointer hover:text-black">Logout</p>
-
+				{/* Profile Icon and Dropdown */}
+				<div className="relative group">
+					<img 
+						className="w-8 h-8 cursor-pointer" 
+						src={assets.profile_icon} 
+						alt="Profile" 
+						onClick={() => !token && navigate('/login')}
+					/>
+					{token && (
+						<div className="absolute right-0 hidden pt-4 group-hover:block z-50">
+							<div className="bg-white rounded-lg shadow-lg py-2 w-48 border">
+								<div 
+									onClick={() => navigate('/profile')} 
+									className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+								>
+									<img src={assets.profile_icon} alt="Profile" className="w-5 h-5" />
+									My Profile
 								</div>
-							</div>}
-					</div>
-				)}
+								<div 
+									onClick={() => navigate('/orders')} 
+									className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+								>
+									<img src={assets.cart_icon} alt="Orders" className="w-5 h-5" />
+									Orders
+								</div>
+								<hr className="my-1" />
+								<div 
+									onClick={logout} 
+									className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-red-600"
+								>
+									<img src={assets.menu_icon} alt="Logout" className="w-5 h-5" />
+									Logout
+								</div>
+							</div>
+						</div>
+					)}
+				</div>
 
 				{/* Cart Icon */}
-				{!searchOpen && (
-					<Link to="/cart" className="relative">
-						<img src={assets.cart_icon || "/fallback-cart.png"} className="w-8 h-8" alt="Cart" />
+				<Link to={token ? "/cart" : "/login"} className="relative">
+					<img src={assets.cart_icon || "/fallback-cart.png"} className="w-8 h-8" alt="Cart" />
+					{token && (
 						<p className="absolute right-[-5px] bottom-[-5px] w-4 text-center leading-4 bg-black text-white rounded-full text-[10px]">
 							{getCartCount()}
 						</p>
-					</Link>
-				)}
+					)}
+				</Link>
 
 				{/* Search Icon (Only on Small Screens) */}
 				{screenWidth < 768 && (

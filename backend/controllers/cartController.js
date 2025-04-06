@@ -1,70 +1,136 @@
 
 import userModel from '../models/userModel.js';
-// Add product to cart
+import cartModel from "../models/cartModel.js";
+import jwt from 'jsonwebtoken';
+
+// Add to cart
 const addToCart = async (req, res) => {
     try {
-        const { userId, itemId, size } = req.body;
+        const { productId, size } = req.body;
+        const token = req.headers.token;
+        
+        if (!token) {
+            return res.status(401).json({ success: false, message: "No token provided" });
+        }
 
-        const userData = await userModel.findById(userId);
-        if (!userData) {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+
+        const user = await userModel.findById(userId);
+        if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
-        let cartData = userData.cartData;
-        if (cartData[itemId]) {
-            if (cartData[itemId][size]) {
-                cartData[itemId][size] += 1;
-            } else {
-                cartData[itemId][size] = 1;
+
+        let cart = await cartModel.findOne({ userId });
+        if (!cart) {
+            cart = new cartModel({ userId, items: {} });
+        }
+
+        // Update cart items
+        cart.items[productId] = cart.items[productId] || {};
+        cart.items[productId][size] = (cart.items[productId][size] || 0) + 1;
+
+        await cart.save();
+        
+        res.json({ success: true, cartData: cart.items });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Get cart items
+const getCart = async (req, res) => {
+    try {
+        const token = req.headers.token;
+        if (!token) {
+            return res.status(401).json({ success: false, message: "No token provided" });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+
+        const cart = await cartModel.findOne({ userId });
+        if (!cart) {
+            return res.json({ success: true, cartData: {} });
+        }
+        
+        res.json({ success: true, cartData: cart.items });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Update cart
+const updateCart = async (req, res) => {
+    try {
+        const { productId, size, quantity } = req.body;
+        const token = req.headers.token;
+        
+        if (!token) {
+            return res.status(401).json({ success: false, message: "No token provided" });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+
+        const cart = await cartModel.findOne({ userId });
+        if (!cart) {
+            return res.status(404).json({ success: false, message: "Cart not found" });
+        }
+
+        if (quantity <= 0) {
+            if (cart.items[productId] && cart.items[productId][size]) {
+                delete cart.items[productId][size];
+                if (Object.keys(cart.items[productId]).length === 0) {
+                    delete cart.items[productId];
+                }
             }
         } else {
-            cartData[itemId] = {};
-            cartData[itemId][size] = 1;
+            cart.items[productId] = cart.items[productId] || {};
+            cart.items[productId][size] = quantity;
         }
 
-        await userModel.findByIdAndUpdate(userId, { cartData }, { new: true });
-        res.status(200).json({ success: true, message: "Product added to cart successfully" });
+        await cart.save();
+        res.json({ success: true, cartData: cart.items });
     } catch (error) {
-        console.log(error);
+        console.error(error);
         res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
-// Update user cart
-const updateCart = async (req, res) => {
-
-
+// Remove from cart
+const removeFromCart = async (req, res) => {
     try {
-        const { userId, itemId, size, quantity } = req.body;
-
-        const userData = await userModel.findById(userId);
-        if (!userData) {
-            return res.status(404).json({ success: false, message: "User not found" });
+        const { productId, size } = req.body;
+        const token = req.headers.token;
+        
+        if (!token) {
+            return res.status(401).json({ success: false, message: "No token provided" });
         }
-        let cartData = userData.cartData;
-        cartData[itemId][size] = quantity;
-        await userModel.findByIdAndUpdate(userId, { cartData }, { new: true });
-        res.status(200).json({ success: true, message: "Cart updated successfully" });
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({ success: false, message: error.message });
 
-    }
-}
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
 
-// Get User cart data
-const getUserCart = async (req, res) => {
-    try {
-        const { userId } = req.body;
-        const userData = await userModel.findById(userId);
-        if (!userData) {
-            return res.status(404).json({ success: false, message: "User not found" });
+        const cart = await cartModel.findOne({ userId });
+        if (!cart) {
+            return res.status(404).json({ success: false, message: "Cart not found" });
         }
-        const cartData = userData.cartData;
-        res.status(200).json({ success: true, cartData });
+
+        if (cart.items[productId] && cart.items[productId][size]) {
+            delete cart.items[productId][size];
+            if (Object.keys(cart.items[productId]).length === 0) {
+                delete cart.items[productId];
+            }
+        }
+
+        await cart.save();
+        res.json({ success: true, cartData: cart.items });
     } catch (error) {
-        console.log(error);
+        console.error(error);
         res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
-export { addToCart, updateCart, getUserCart };
+export { addToCart, getCart, updateCart, removeFromCart };

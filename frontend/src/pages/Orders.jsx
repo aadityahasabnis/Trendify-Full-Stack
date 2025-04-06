@@ -28,7 +28,7 @@ const Orders = () => {
 				});
 
 				setOrderData(allOrdersItem); // ✅ Update state properly
-				console.log(allOrdersItem);
+				// console.log(allOrdersItem);
 
 			}
 		} catch (error) {

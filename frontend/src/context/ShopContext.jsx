@@ -21,9 +21,17 @@ const ShopContextProvider = (props) => {
 	// const [subcategories, setSubcategories] = useState([]);
 	const [token, setToken] = useState('');
 
+
+	// console.log(token)
 	const addToCart = async (itemId, size) => {
 		if (!size) {
 			toast.error("Select Product Size");
+			return;
+		}
+
+		if (!token) {
+			toast.error("Login to add items to cart");
+			navigate("/login");
 			return;
 		}
 
@@ -31,33 +39,38 @@ const ShopContextProvider = (props) => {
 		cartData[itemId] = cartData[itemId] || {};
 		cartData[itemId][size] = (cartData[itemId][size] || 0) + 1;
 
-		setCartItems(cartData);
-
-		if (token) {
-			try {
-				// console.log("Sending to backend:", { itemId, size, quantity: cartData[itemId][size] });
-				// console.log("Token:", token);
-				// console.log("Backend URL:", backendUrl);
-
-				// console.log("Full API Request URL:", backendUrl + "/api/cart/add");
-
-				const response = await axios.post(backendUrl + "/api/cart/add",
-					{ itemId, size },
-					{ headers: { token } }
-				);
-
-				if (response.data.success) {
-					toast.success("Added to cart successfully");
-				} else {
-					toast.error("Failed to add to cart");
+		try {
+			const response = await axios.post(
+				`${backendUrl}/api/cart/add`,
+				{
+					productId: itemId,  // Changed from itemId to productId
+					size,
+					quantity: cartData[itemId][size]
+				},
+				{
+					headers: {
+						'Content-Type': 'application/json',
+						token: `${token}`  // Ensure token is properly formatted
+					}
 				}
-			} catch (error) {
-				console.log(error);
-				toast.error("Error adding item to cart");
+			);
+
+			if (response.data.success) {
+				setCartItems(cartData);
+				toast.success("Added to cart successfully");
+			} else {
+				throw new Error(response.data.message);
 			}
-		} else {
-			toast.error("Login to add items to cart");
-			navigate("/login");
+		} catch (error) {
+			console.log(error);
+			if (error.response?.status === 401) {
+				toast.error("Please login again");
+				setToken(null);
+				localStorage.removeItem('token');
+				navigate("/login");
+			} else {
+				toast.error(error.response?.data?.message || "Error adding item to cart");
+			}
 		}
 	};
 
