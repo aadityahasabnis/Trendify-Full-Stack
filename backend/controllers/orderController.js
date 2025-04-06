@@ -2,6 +2,8 @@ import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import Stripe from 'stripe'
 import nodemailer from 'nodemailer'
+import jwt from 'jsonwebtoken';
+
 
 // Global variables
 const currency = 'inr';
@@ -13,8 +15,21 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 // Placing orders using COD method
 const placeOrder = async (req, res) => {
     try {
+        // console.log('Request Body:', req.body); // Debugging log
+        const token = req.headers.token;
+        
+        if (!token) {
+            return res.status(401).json({ success: false, message: "No token provided" });
+        }
 
-        const { userId, items, amount, address } = req.body;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const { items, amount, address } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ success: false, message: 'User ID is required' });
+        }
+
         const orderData = {
             userId,
             items,
@@ -23,11 +38,11 @@ const placeOrder = async (req, res) => {
             date: Date.now(),
             paymentMethod: "COD",
             payment: false
-        }
+        };
         const newOrder = new orderModel(orderData);
         await newOrder.save();
 
-        await userModel.findByIdAndUpdate(userId, { cartData: {} })
+        await userModel.findByIdAndUpdate(userId, { cartData: {} });
 
         // Find user email
         const user = await userModel.findById(userId);
@@ -58,7 +73,7 @@ const placeOrder = async (req, res) => {
         
                         <h2 style="font-size:18px;color:#6c63ff;margin-top:30px;">🧾 Order Summary:</h2>
                         <div style="font-size:15px;line-height:1.6;background-color:#f9f9f9;padding:15px;border-radius:6px;">
-                            ${orderDetails.items.map(item => `
+                            ${items.map(item => `
                                 <div style="margin-bottom:10px;">
                                     <strong>${item.name}</strong><br/>
                                     Quantity: ${item.quantity}<br/>
@@ -66,11 +81,11 @@ const placeOrder = async (req, res) => {
                                 </div>
                             `).join('')}
                             <hr style="border: none; border-top: 1px solid #ddd;" />
-                            <strong>Total: ₹${orderDetails.total}</strong>
+                            <strong>Total: ₹${amount}</strong>
                         </div>
         
                         <div style="text-align:center;margin:30px 0;">
-                            <a href="https://trendify.com/orders" 
+                            <a href="https://trendify-frontend-vercel.vercel.app/orders" 
                                style="display:inline-block;padding:12px 24px;background-color:#6c63ff;color:#fff;
                                       border-radius:6px;text-decoration:none;font-weight:bold;font-size:16px;">
                                 📦 Track Your Order
@@ -99,9 +114,10 @@ const placeOrder = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Server error' });
-
     }
-}
+};
+
+
 // Placing orders using COD method
 const placeStripe = async (req, res) => {
     try {
@@ -203,7 +219,16 @@ const allOrders = async (req, res) => {
 // User orders data
 const userOrders = async (req, res) => {
     try {
-        const { userId } = req.body;
+        // const { userId } = req.body;
+        const token = req.headers.token;
+        
+        if (!token) {
+            return res.status(401).json({ success: false, message: "No token provided" });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+
         const orders = await orderModel.find({ userId }).sort({ date: -1 });
         if (orders.length === 0) {
             return res.status(200).json({ success: false, message: 'No orders found' });

@@ -116,7 +116,7 @@ const registerUser = async (req, res) => {
                         </p>
         
                         <div style="text-align:center;margin:30px 0;">
-                            <a href="https://trendify.com" 
+                            <a href="https://trendify-frontend-vercel.vercel.app" 
                                style="display:inline-block;padding:12px 24px;background-color:#6c63ff;color:#fff;
                                       border-radius:6px;text-decoration:none;font-weight:bold;font-size:16px;">
                                 🔍 Start Exploring
