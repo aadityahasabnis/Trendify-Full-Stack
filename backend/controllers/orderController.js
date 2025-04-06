@@ -58,6 +58,7 @@ const placeOrder = async (req, res) => {
             },
             secure: false,
         });
+        
         const mailOptions = {
             from: process.env.EMAIL_USERNAME,
             to: user.email,
