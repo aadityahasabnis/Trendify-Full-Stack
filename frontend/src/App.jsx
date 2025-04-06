@@ -12,6 +12,7 @@ import Orders from "./pages/Orders";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Verify from "./pages/Verify";
 import UserProfile from "./pages/UserProfile";
 import ResetPassword from "./pages/ResetPassword"; // Import the ResetPassword component
@@ -37,6 +38,7 @@ function App() {
         <Route path="/reset-password/:token" element={<ResetPassword />} /> {/* Add this route */}
       </Routes>
       <Footer />
+      <ToastContainer /> {/* Ensure ToastContainer is included here */}
     </div>
   );
 }
