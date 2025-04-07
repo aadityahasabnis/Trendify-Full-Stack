@@ -76,83 +76,81 @@ const Product = () => {
 		setIsLoading(false);
 	};
 
-		
-
 	// Add or edit a review
 	// Update the handleReviewSubmit function
 	const handleReviewSubmit = async () => {
-	    if (!userId) {
-	        setErrorMessage('You need to be logged in to submit a review.');
-	        return;
-	    }
-	
-	    if (!newReview.rating || !newReview.comment) {
-	        setErrorMessage('Please provide both rating and comment.');
-	        return;
-	    }
-	
-	    setIsSubmitting(true);
-	    try {
-	        if (editingReview) {
-	            const response = await axios.put(
-	                `${backendUrl}/api/reviews/update/${editingReview._id}`,
-	                {
-	                    userId,
-	                    rating: parseInt(newReview.rating),
-	                    comment: newReview.comment,
-	                    productId
-	                },
-	                {
-	                    headers: { token }
-	                }
-	            );
-	
-	            if (!response.data.success) {
-	                throw new Error(response.data.message);
-	            }
-	        } else {
-	            await axios.post(
-	                `${backendUrl}/api/reviews/add`,
-	                {
-	                    userId,
-	                    productId,
-	                    rating: parseInt(newReview.rating),
-	                    comment: newReview.comment
-	                },
-	                { headers: { token } }
-	            );
-	        }
-	        
-	        setNewReview({ rating: 0, comment: '' });
-	        setEditingReview(null);
-	        await fetchReviews();
-	        setIsSubmitting(false);
-	        setErrorMessage('');
-	    } catch (error) {
-	        console.error('Error submitting review:', error);
-	        setErrorMessage(error.response?.data?.message || error.message);
-	        setIsSubmitting(false);
-	    }
+		if (!userId) {
+			setErrorMessage('You need to be logged in to submit a review.');
+			return;
+		}
+
+		if (!newReview.rating || !newReview.comment) {
+			setErrorMessage('Please provide both rating and comment.');
+			return;
+		}
+
+		setIsSubmitting(true);
+		try {
+			if (editingReview) {
+				const response = await axios.put(
+					`${backendUrl}/api/reviews/update/${editingReview._id}`,
+					{
+						userId,
+						rating: parseInt(newReview.rating),
+						comment: newReview.comment,
+						productId
+					},
+					{
+						headers: { token }
+					}
+				);
+
+				if (!response.data.success) {
+					throw new Error(response.data.message);
+				}
+			} else {
+				await axios.post(
+					`${backendUrl}/api/reviews/add`,
+					{
+						userId,
+						productId,
+						rating: parseInt(newReview.rating),
+						comment: newReview.comment
+					},
+					{ headers: { token } }
+				);
+			}
+
+			setNewReview({ rating: 0, comment: '' });
+			setEditingReview(null);
+			await fetchReviews();
+			setIsSubmitting(false);
+			setErrorMessage('');
+		} catch (error) {
+			console.error('Error submitting review:', error);
+			setErrorMessage(error.response?.data?.message || error.message);
+			setIsSubmitting(false);
+		}
 	};
-	
+
 	// Update the delete review function
 	const handleDeleteReview = async (reviewId) => {
-	    try {
-	        const response = await axios.delete(`${backendUrl}/api/reviews/delete/${reviewId}`, {
-	            headers: { token },
-	            data: { userId, productId }
-	        });
-	
-	        if (response.data.success) {
-	            await fetchReviews();
-	            setErrorMessage('');
-	        } else {
-	            throw new Error(response.data.message);
-	        }
-	    } catch (error) {
-	        console.error('Error deleting review:', error);
-	        setErrorMessage(error.response?.data?.message || 'Error deleting your review. Please try again later.');
-	    }
+		try {
+			const response = await axios.delete(`${backendUrl}/api/reviews/delete/${reviewId}`, {
+				headers: { token },
+				data: { userId, productId }
+			});
+
+			if (response.data.success) {
+				await fetchReviews();
+				setErrorMessage('');
+			} else {
+				throw new Error(response.data.message);
+			}
+		} catch (error) {
+			console.error('Error deleting review:', error);
+			setErrorMessage(error.response?.data?.message || 'Error deleting your review. Please try again later.');
+		}
 	};
 
 	// Add this effect to populate the form when editing
@@ -182,7 +180,7 @@ const Product = () => {
 	if (!productData) {
 		return <div>Product not found.</div>;
 	}
-	
+
 	return productData ? (
 		<div className='border-t-2 pt-10 transition-opacity ease-in duration-500 opacity-100'>
 			{/* Product Data */}
@@ -215,6 +213,32 @@ const Product = () => {
 					<p className='mt-5 text-3xl font-medium'>
 						{currency}{productData.price}
 					</p>
+
+					{/* Stock Status */}
+					{productData.stockStatus ? (
+						<div className={`mt-2 py-1 px-3 inline-block rounded-md font-medium ${!productData.stockStatus.inStock
+							? 'bg-red-100 text-red-700'
+							: productData.stockStatus.lowStock
+								? 'bg-orange-100 text-orange-700'
+								: 'bg-green-100 text-green-700'
+							}`}>
+							{productData.stockStatus.message}
+						</div>
+					) : (
+						<div className={`mt-2 py-1 px-3 inline-block rounded-md font-medium ${!productData.stock || productData.stock <= 0
+							? 'bg-red-100 text-red-700'
+							: productData.stock <= 10
+								? 'bg-orange-100 text-orange-700'
+								: 'bg-green-100 text-green-700'
+							}`}>
+							{!productData.stock || productData.stock <= 0
+								? 'Out of stock'
+								: productData.stock <= 10
+									? `Only ${productData.stock} left in stock!`
+									: 'In stock'}
+						</div>
+					)}
+
 					<p className='mt-5 text-gray-500 md:w-4/5'>
 						{productData.description}
 					</p>
@@ -227,7 +251,21 @@ const Product = () => {
 						</div>
 					</div>
 
-					<button onClick={() => addToCart(productData._id, size)} className='bg-black text-white px-8 py-3 text-sm active:bg-gray-700'>ADD TO CART</button>
+					<button
+						onClick={() => {
+							if (size) {
+								addToCart(productId, size);
+							} else {
+								alert('Please select a size');
+							}
+						}}
+						className={`mt-5 px-12 py-3 text-lg font-medium ${!size ? 'bg-gray-500' :
+							!(productData.stockStatus?.inStock ?? (productData.stock > 0)) ? 'bg-gray-500 cursor-not-allowed' : 'bg-orange-500'
+							} text-white rounded hover:bg-orange-600`}
+						disabled={!size || !(productData.stockStatus?.inStock ?? (productData.stock > 0))}
+					>
+						ADD TO CART
+					</button>
 					<hr className='mt-8 sm:w-4/5' />
 					<div className='text-sm text-gray-500 mt-5 flex flex-col gap-1'>
 						<p>100% Original Product.</p>

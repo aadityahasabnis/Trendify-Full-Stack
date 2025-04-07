@@ -40,9 +40,14 @@ const PlaceOrder = () => {
 					if (cartItems[items][size] > 0) {
 						const itemInfo = structuredClone(products.find((product) => product._id === items));
 						if (itemInfo) {
-							itemInfo.size = size;
-							itemInfo.quantity = cartItems[items][size];
-							orderItems.push(itemInfo);
+							orderItems.push({
+								productId: itemInfo._id,
+								name: itemInfo.name,
+								price: itemInfo.price,
+								image: itemInfo.image[0],
+								size: size,
+								quantity: cartItems[items][size]
+							});
 						}
 					}
 				}
@@ -58,7 +63,7 @@ const PlaceOrder = () => {
 				return;
 			}
 
-			const cartAmount = getCartAmount() || 0; // Ensure it’s a number
+			const cartAmount = getCartAmount() || 0; // Ensure it's a number
 			const totalAmount = cartAmount + delivery_fee;
 
 			let orderData = {
@@ -80,10 +85,10 @@ const PlaceOrder = () => {
 					}
 					break;
 				}
-				case 'stripe' : {
-					const responseStripe = await axios.post(backendUrl + '/api/order/stripe', orderData, {headers:{token}})
-					if(responseStripe.data.success){
-						const {session_url} = responseStripe.data;
+				case 'stripe': {
+					const responseStripe = await axios.post(backendUrl + '/api/order/stripe', orderData, { headers: { token } })
+					if (responseStripe.data.success) {
+						const { session_url } = responseStripe.data;
 						window.location.replace(session_url)
 					} else {
 						toast.error(responseStripe.data.message)

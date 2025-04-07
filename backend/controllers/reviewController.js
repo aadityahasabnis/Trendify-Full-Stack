@@ -7,27 +7,44 @@ import mongoose from "mongoose";
 // Add a review (User)
 const addReview = async (req, res) => {
     try {
-        const { userId, productId, rating, comment } = req.body;
+        const { productId, rating, comment } = req.body;
+        const token = req.headers.token;
 
-        // Validate user and product existence
-        const user = await userModel.findById(userId);
-        const product = await productModel.findById(productId);
-
-        if (!user) {
-            return res.status(404).json({ success: false, message: "User not found" });
-        }
-        if (!product) {
-            return res.status(404).json({ success: false, message: "Product not found" });
+        if (!token) {
+            return res.status(401).json({ success: false, message: "No token provided" });
         }
 
-        // Create and save the review
-        const newReview = new reviewModel({ userId, productId, rating, comment });
-        await newReview.save();
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
 
-        res.status(200).json({ success: true, message: "Review added successfully", review: newReview });
+        if (!productId || !rating || !comment) {
+            return res.status(400).json({ success: false, message: "Product ID, rating, and comment are required" });
+        }
+
+        // Check if user has already reviewed this product
+        const existingReview = await reviewModel.findOne({ userId, productId });
+        if (existingReview) {
+            return res.status(400).json({ success: false, message: "You have already reviewed this product" });
+        }
+
+        const review = new reviewModel({
+            userId,
+            productId,
+            rating,
+            comment,
+            date: new Date()
+        });
+
+        await review.save();
+
+        res.status(201).json({
+            success: true,
+            message: "Review added successfully",
+            review
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: error.message });
+        console.error("Error adding review:", error);
+        res.status(500).json({ success: false, message: "Failed to add review" });
     }
 };
 
@@ -36,21 +53,21 @@ const getProductReviews = async (req, res) => {
     try {
         const { productId } = req.params;
 
-        // Convert to ObjectId
-        const objectId = new mongoose.Types.ObjectId(productId);
-
-        const reviews = await reviewModel
-            .find({ productId: objectId })
-            .populate("userId", "name email");
-
-        if (reviews.length === 0) {
-            return res.status(404).json({ success: false, message: "No reviews found for this product" });
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return res.status(400).json({ success: false, message: "Invalid product ID" });
         }
 
-        res.status(200).json({ success: true, reviews });
+        const reviews = await reviewModel.find({ productId })
+            .populate('userId', 'name email')
+            .sort({ date: -1 });
+
+        res.json({
+            success: true,
+            reviews
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: error.message });
+        console.error("Error fetching product reviews:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch reviews" });
     }
 };
 
@@ -91,23 +108,35 @@ const updateReview = async (req, res) => {
 const deleteReview = async (req, res) => {
     try {
         const { reviewId } = req.params;
-        const userId = req.body.userId; // From auth middleware
+        const token = req.headers.token;
+
+        if (!token) {
+            return res.status(401).json({ success: false, message: "No token provided" });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const isAdmin = decoded.isAdmin;
 
         const review = await reviewModel.findById(reviewId);
         if (!review) {
             return res.status(404).json({ success: false, message: "Review not found" });
         }
 
-        // Check if the user owns the review
-        if (review.userId.toString() !== userId) {
+        // Check if user is admin or review owner
+        if (!isAdmin && review.userId.toString() !== userId) {
             return res.status(403).json({ success: false, message: "Not authorized to delete this review" });
         }
 
         await reviewModel.findByIdAndDelete(reviewId);
-        res.status(200).json({ success: true, message: "Review deleted successfully" });
+
+        res.json({
+            success: true,
+            message: "Review deleted successfully"
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: error.message });
+        console.error("Error deleting review:", error);
+        res.status(500).json({ success: false, message: "Failed to delete review" });
     }
 };
 

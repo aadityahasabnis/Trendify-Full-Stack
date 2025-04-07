@@ -3,6 +3,8 @@ import userModel from "../models/userModel.js";
 import Stripe from 'stripe'
 import nodemailer from 'nodemailer'
 import jwt from 'jsonwebtoken';
+import { decreaseStock } from "./productController.js";
+import productModel from "../models/productModel.js";
 
 
 // Global variables
@@ -17,7 +19,7 @@ const placeOrder = async (req, res) => {
     try {
         // console.log('Request Body:', req.body); // Debugging log
         const token = req.headers.token;
-        
+
         if (!token) {
             return res.status(401).json({ success: false, message: "No token provided" });
         }
@@ -30,6 +32,7 @@ const placeOrder = async (req, res) => {
             return res.status(400).json({ success: false, message: 'User ID is required' });
         }
 
+        // Create the order first to get the orderId
         const orderData = {
             userId,
             items,
@@ -41,6 +44,19 @@ const placeOrder = async (req, res) => {
         };
         const newOrder = new orderModel(orderData);
         await newOrder.save();
+
+        // Decrease product stock after creating the order
+        console.log('Decreasing stock for items:', items);
+        const stockUpdateResult = await decreaseStock(items, newOrder._id);
+
+        if (!stockUpdateResult.success) {
+            // If stock update fails, delete the order and return error
+            await orderModel.findByIdAndDelete(newOrder._id);
+            return res.status(400).json({
+                success: false,
+                message: stockUpdateResult.message || 'Failed to update product stock'
+            });
+        }
 
         await userModel.findByIdAndUpdate(userId, { cartData: {} });
 
@@ -58,7 +74,7 @@ const placeOrder = async (req, res) => {
             },
             secure: false,
         });
-        
+
         const mailOptions = {
             from: process.env.EMAIL_USERNAME,
             to: user.email,
@@ -107,7 +123,7 @@ const placeOrder = async (req, res) => {
                 </div>
             `,
         };
-        
+
         await transporter.sendMail(mailOptions);
 
 
@@ -119,11 +135,24 @@ const placeOrder = async (req, res) => {
 };
 
 
-// Placing orders using COD method
+// Placing orders using Stripe method
 const placeStripe = async (req, res) => {
     try {
         const { userId, items, amount, address } = req.body;
         const { origin } = req.headers;
+
+        // Check stock availability without reducing it yet
+        console.log('Checking stock for Stripe order items:', items);
+        const stockCheckResult = await checkStockAvailability(items);
+
+        if (!stockCheckResult.success) {
+            return res.status(400).json({
+                success: false,
+                message: stockCheckResult.message || 'Insufficient stock for some items',
+                insufficientItems: stockCheckResult.insufficientItems
+            });
+        }
+
         const orderData = {
             userId,
             items,
@@ -139,7 +168,7 @@ const placeStripe = async (req, res) => {
 
         const line_items = items.map((item) => ({
             price_data: {
-                currency: currency, // <-- Missing comma added
+                currency: currency,
                 product_data: {
                     name: item.name
                 },
@@ -150,13 +179,13 @@ const placeStripe = async (req, res) => {
 
         line_items.push({
             price_data: {
-                currency: currency, // <-- Missing comma added
+                currency: currency,
                 product_data: {
                     name: "Delivery Charges"
                 },
                 unit_amount: deliveryCharge * 100
             },
-            quantity: 1 // <-- Fixed: `item.quantity` does not apply to delivery charge
+            quantity: 1
         });
 
 
@@ -167,30 +196,95 @@ const placeStripe = async (req, res) => {
             mode: 'payment'
         })
 
-        res.json({success:true, session_url:session.url})
+        res.json({ success: true, session_url: session.url })
 
     } catch (error) {
         console.error(error);
         res.json({ success: false, message: error.message });
+    }
+}
 
+// Function to check stock availability without decreasing it
+const checkStockAvailability = async (orderedItems) => {
+    try {
+        // Track which products don't have enough stock
+        let insufficientStockItems = [];
+
+        // Check stock for each item
+        for (const item of orderedItems) {
+            const product = await productModel.findById(item.productId);
+            if (!product) {
+                console.error(`Product not found: ${item.productId}`);
+                continue;
+            }
+
+            // Check if stock is sufficient
+            if ((product.stock || 0) < item.quantity) {
+                insufficientStockItems.push({
+                    productId: item.productId,
+                    name: item.name,
+                    requestedQty: item.quantity,
+                    availableQty: product.stock || 0
+                });
+            }
+        }
+
+        // If any product has insufficient stock, return error
+        if (insufficientStockItems.length > 0) {
+            console.error('Insufficient stock for items:', insufficientStockItems);
+            return {
+                success: false,
+                message: 'Some products have insufficient stock',
+                insufficientItems: insufficientStockItems
+            };
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error("Error checking stock availability:", error);
+        return {
+            success: false,
+            message: error.message || 'Failed to check stock availability'
+        };
     }
 }
 
 // Verify Stripe
-const verifyStripe = async (req, res)=> {
+const verifyStripe = async (req, res) => {
     const { orderId, success, userId } = req.body;
     try {
-        if(success === 'true') {
-            await orderModel.findByIdAndUpdate(orderId, {payment:true});
-            await userModel.findByIdAndUpdate(userId, {cartData:{}})
-            res.json({success:true})
-        }
-        else {
+        if (success === 'true') {
+            // Get the order details
+            const order = await orderModel.findById(orderId);
+            if (!order) {
+                return res.json({ success: false, message: 'Order not found' });
+            }
+
+            // Update order payment status
+            order.payment = true;
+            await order.save();
+
+            // Now decrease stock since payment was successful
+            console.log('Payment successful, decreasing stock for items:', order.items);
+            const stockUpdateResult = await decreaseStock(order.items, orderId);
+
+            if (!stockUpdateResult.success) {
+                console.error('Failed to update stock after payment:', stockUpdateResult.message);
+                // Continue anyway since payment was successful
+            }
+
+            // Clear user's cart
+            await userModel.findByIdAndUpdate(userId, { cartData: {} });
+
+            res.json({ success: true });
+        } else {
+            // Payment failed, delete the order
             await orderModel.findByIdAndDelete(orderId);
-            res.json({success:false})
+            res.json({ success: false, message: 'Payment failed or canceled' });
         }
     } catch (error) {
-        
+        console.error('Error verifying Stripe payment:', error);
+        res.json({ success: false, message: error.message || 'Error processing payment verification' });
     }
 }
 
@@ -222,7 +316,7 @@ const userOrders = async (req, res) => {
     try {
         // const { userId } = req.body;
         const token = req.headers.token;
-        
+
         if (!token) {
             return res.status(401).json({ success: false, message: "No token provided" });
         }

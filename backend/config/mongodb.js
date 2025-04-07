@@ -1,13 +1,24 @@
-import mongoose, { mongo } from "mongoose";
+import mongoose from "mongoose";
 
 const connectDB = async () => {
-    mongoose.connection.on(
-        'connected',
-        () => {
-            console.log("DB Connected") 
-        }
-    )
-    await mongoose.connect(`${process.env.MONGODB_URL}/trendify`)
+    try {
+        mongoose.connection.on('connected', () => {
+            console.log("MongoDB Connected Successfully");
+        });
+
+        mongoose.connection.on('error', (err) => {
+            console.error('MongoDB Connection Error:', err);
+        });
+
+        mongoose.connection.on('disconnected', () => {
+            console.log('MongoDB Disconnected');
+        });
+
+        await mongoose.connect(`${process.env.MONGODB_URL}/trendify`);
+    } catch (error) {
+        console.error('Error connecting to MongoDB:', error);
+        process.exit(1);
+    }
 }
 
 export default connectDB;

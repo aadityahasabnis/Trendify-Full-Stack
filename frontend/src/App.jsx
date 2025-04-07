@@ -16,27 +16,33 @@ import 'react-toastify/dist/ReactToastify.css';
 import Verify from "./pages/Verify";
 import UserProfile from "./pages/UserProfile";
 import ResetPassword from "./pages/ResetPassword"; // Import the ResetPassword component
+import CategoryPage from "./pages/CategoryPage";
+import SubcategoryPage from "./pages/SubcategoryPage";
 
 function App() {
   return (
-    <div>
+    <div className="flex flex-col min-h-screen">
       <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/collections" element={<Collection />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
-        {/* <Route path='/' element={<About/>} /> */}
-        <Route path="/product/:productId" element={<Product />} />
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/place-order" element={<PlaceOrder />} />
-        {/* <Route path='/' element={<Login/>} /> */}
-        <Route path="/orders" element={<Orders />} />
-        <Route path="/verify" element={<Verify />} />
-        <Route path="/profile" element={<UserProfile />} />
-        <Route path="/reset-password/:token" element={<ResetPassword />} /> {/* Add this route */}
-      </Routes>
+      <main className="flex-grow pt-16"> {/* Add padding-top equal to Navbar height */}
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/collections" element={<Collection />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          {/* <Route path='/' element={<About/>} /> */}
+          <Route path="/product/:productId" element={<Product />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/place-order" element={<PlaceOrder />} />
+          {/* <Route path='/' element={<Login/>} /> */}
+          <Route path="/orders" element={<Orders />} />
+          <Route path="/verify" element={<Verify />} />
+          <Route path="/profile" element={<UserProfile />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} /> {/* Add this route */}
+          <Route path="/:categorySlug" element={<CategoryPage />} />
+          <Route path="/:categorySlug/:subcategorySlug" element={<SubcategoryPage />} />
+        </Routes>
+      </main>
       <Footer />
       <ToastContainer /> {/* Ensure ToastContainer is included here */}
     </div>

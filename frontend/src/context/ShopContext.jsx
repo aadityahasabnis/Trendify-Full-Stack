@@ -11,7 +11,7 @@ export const ShopContext = createContext();
 const ShopContextProvider = (props) => {
 	const currency = "₹";
 	const delivery_fee = 10;
-	const backendUrl = import.meta.env.VITE_BACKEND_URL ;
+	const backendUrl = import.meta.env.VITE_BACKEND_URL;
 	const [search, setSearch] = useState("");
 	const [showSearch, setShowSearch] = useState(true);
 	const [cartItems, setCartItems] = useState({});
@@ -23,6 +23,29 @@ const ShopContextProvider = (props) => {
 
 
 	// console.log(token)
+	const getStockStatus = (product) => {
+		if (!product) return null;
+
+		// Check if product has stock status from API
+		if (product.stockStatus) {
+			return product.stockStatus;
+		}
+
+		// Ensure stock is a number for proper comparison
+		const stock = typeof product.stock === 'number' ? product.stock : 0;
+		const isActive = product.isActive !== false; // Default to true if not specified
+		const lowStockThreshold = product.lowStockThreshold || 10;
+
+		return {
+			inStock: stock > 0 && isActive,
+			lowStock: stock > 0 && stock <= lowStockThreshold,
+			message: !isActive ? "Not available" :
+				stock === 0 ? "Out of stock" :
+					stock <= lowStockThreshold ? `Only ${stock} left in stock!` :
+						"In stock"
+		};
+	}
+
 	const addToCart = async (itemId, size) => {
 		if (!size) {
 			toast.error("Select Product Size");
@@ -36,6 +59,29 @@ const ShopContextProvider = (props) => {
 		}
 
 		let cartData = structuredClone(cartItems);
+		const product = products.find((p) => p._id === itemId);
+
+		if (!product) {
+			toast.error("Product not found");
+			return;
+		}
+
+		// Check if product is in stock
+		const stockStatus = getStockStatus(product);
+		if (!stockStatus || stockStatus.inStock === false) {
+			toast.error(stockStatus?.message || "Product is out of stock");
+			return;
+		}
+
+		// Get current quantity in cart for this product+size
+		const currentQty = cartData[itemId]?.[size] || 0;
+
+		// Check if adding one more would exceed available stock
+		if (currentQty + 1 > product.stock) {
+			toast.warning(`Sorry, only ${product.stock} items available in stock`);
+			return;
+		}
+
 		cartData[itemId] = cartData[itemId] || {};
 		cartData[itemId][size] = (cartData[itemId][size] || 0) + 1;
 
@@ -112,7 +158,7 @@ const ShopContextProvider = (props) => {
 		}
 	}
 
-	
+
 
 	const getCartAmount = () => {
 		let totalAmount = 0;
@@ -185,7 +231,7 @@ const ShopContextProvider = (props) => {
 	// }, [])
 
 
-	const getUserCart = async ( token ) => {
+	const getUserCart = async (token) => {
 		try {
 			const response = await axios.get(backendUrl + "/api/cart/get",
 				{ headers: { token } }
@@ -236,7 +282,8 @@ const ShopContextProvider = (props) => {
 		// subcategories,
 		products,
 		currency,
-		token, setToken
+		token, setToken,
+		getStockStatus
 
 	};
 

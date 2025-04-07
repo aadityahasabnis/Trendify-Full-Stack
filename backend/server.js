@@ -9,10 +9,14 @@ import cartRouter from './routes/cartRoute.js';
 import orderRouter from './routes/orderRoute.js';
 import reviewRouter from './routes/reviewRoute.js';
 import analyticsRouter from './routes/analyticsRoute.js';
+import newsletterRouter from './routes/newsletterRoute.js';
+import categoryRouter from './routes/categoryRoute.js';
+import adminRouter from './routes/adminRoute.js';
+import inventoryRouter from './routes/inventoryRoute.js';
 
 // App config
 const app = express();
-const port = process.env.PORT ;
+const port = process.env.PORT;
 connectDB();
 connectCloudinary();
 
@@ -43,11 +47,14 @@ app.use('/api/cart', cartRouter);
 app.use('/api/order', orderRouter);
 app.use('/api/reviews', reviewRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/newsletter', newsletterRouter);
+app.use('/api', categoryRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/inventory', inventoryRouter);
 
 app.get('/', (req, res) => {
     res.send("API working.");
 });
-
 
 app.listen(port, () => {
     console.log("Server started on port: " + port);

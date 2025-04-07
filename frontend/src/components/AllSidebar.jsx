@@ -1,10 +1,48 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { assets } from "../assets/frontend_assets/assets";
+import React, { useState, useRef, useEffect, useContext } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ShopContext } from "../context/ShopContext";
 
 const AllSidebar = ({ isOpen, onClose }) => {
     const firstFocusableElement = useRef(null);
     const [currentSection, setCurrentSection] = useState("main");
+    const { token, setToken, setCartItems } = useContext(ShopContext);
+    const [userData, setUserData] = useState(null);
+    const navigate = useNavigate();
+    const [showProfileInfo, setShowProfileInfo] = useState(false);
+
+    // Fetch user data if logged in
+    useEffect(() => {
+        const fetchUserData = async () => {
+            try {
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/user/profile`, {
+                    headers: { token }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setUserData(data.user);
+                }
+            } catch (error) {
+                console.error("Error fetching user data:", error);
+            }
+        };
+
+        if (token) {
+            fetchUserData();
+        }
+    }, [token]);
+
+    const logout = () => {
+        setToken('');
+        localStorage.removeItem('token');
+        setCartItems({});
+        navigate('/login');
+        onClose();
+    };
+
+    // Add profile click handler
+    const handleProfileClick = () => {
+        setShowProfileInfo(!showProfileInfo);
+    };
 
     useEffect(() => {
         if (isOpen) {
@@ -28,46 +66,115 @@ const AllSidebar = ({ isOpen, onClose }) => {
     }, [isOpen, onClose]);
 
     const renderMainSection = () => (
-        <div className="p-4">
-            <div className="p-4">
-                <h3 className="font-semibold mb-2">Trending</h3>
-                <Link to="/best-sellers" className="block p-2 hover:bg-gray-100">
-                    Bestsellers
-                </Link>
-                <Link to="/new-releases" className="block p-2 hover:bg-gray-100">
-                    New Releases
-                </Link>
-                <Link to="/movers-shakers" className="block p-2 hover:bg-gray-100">
-                    Movers and Shakers
-                </Link>
+        <div className="flex flex-col h-full">
+            {/* Trending Section */}
+            <div className="p-4 border-b">
+                <h3 className="text-lg font-semibold mb-3 text-gray-800">Trending</h3>
+                <div className="space-y-2">
+                    <Link to="/best-sellers"
+                        className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                        onClick={onClose}
+                    >
+                        <span className="material-icons mr-3 text-orange-500">trending_up</span>
+                        <span className="group-hover:text-orange-600">Bestsellers</span>
+                    </Link>
+                    <Link to="/new-releases"
+                        className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                        onClick={onClose}
+                    >
+                        <span className="material-icons mr-3 text-orange-500">new_releases</span>
+                        <span className="group-hover:text-orange-600">New Releases</span>
+                    </Link>
+                    <Link to="/movers-shakers"
+                        className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                        onClick={onClose}
+                    >
+                        <span className="material-icons mr-3 text-orange-500">moving</span>
+                        <span className="group-hover:text-orange-600">Movers and Shakers</span>
+                    </Link>
+                </div>
             </div>
-            <div className="p-4">
-                <h3 className="font-semibold mb-2">Shop by Category</h3>
-                <button
-                    onClick={() => setCurrentSection("mobiles")}
-                    className="block p-2 hover:bg-gray-100 w-full text-left"
-                >
-                    Mobiles
-                </button>
-                <button
-                    onClick={() => setCurrentSection("computers")}
-                    className="block p-2 hover:bg-gray-100 w-full text-left"
-                >
-                    Computers
-                </button>
-                <Link to="/tv" className="block p-2 hover:bg-gray-100">
-                    TV
-                </Link>
-                <Link to="/mens-fashion" className="block p-2 hover:bg-gray-100">
-                    Mens Fashion
-                </Link>
-                <Link to="/womens-fashion" className="block p-2 hover:bg-gray-100">
-                    Womens Fashion
-                </Link>
-                <Link to="/see-all" className="block p-2 hover:bg-gray-100">
-                    See All
-                </Link>
+
+            {/* Shop by Category Section */}
+            <div className="p-4 flex-1">
+                <h3 className="text-lg font-semibold mb-3 text-gray-800">Shop by Category</h3>
+                <div className="space-y-2">
+                    <button
+                        onClick={() => setCurrentSection("mobiles")}
+                        className="flex items-center w-full p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                    >
+                        <span className="material-icons mr-3 text-orange-500">smartphone</span>
+                        <span className="group-hover:text-orange-600 flex-1 text-left">Mobiles</span>
+                        <span className="material-icons text-gray-400">chevron_right</span>
+                    </button>
+                    <button
+                        onClick={() => setCurrentSection("computers")}
+                        className="flex items-center w-full p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                    >
+                        <span className="material-icons mr-3 text-orange-500">computer</span>
+                        <span className="group-hover:text-orange-600 flex-1 text-left">Computers</span>
+                        <span className="material-icons text-gray-400">chevron_right</span>
+                    </button>
+                    <Link to="/tv"
+                        className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                        onClick={onClose}
+                    >
+                        <span className="material-icons mr-3 text-orange-500">tv</span>
+                        <span className="group-hover:text-orange-600">TV</span>
+                    </Link>
+                    <Link to="/mens-fashion"
+                        className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                        onClick={onClose}
+                    >
+                        <span className="material-icons mr-3 text-orange-500">man</span>
+                        <span className="group-hover:text-orange-600">Mens Fashion</span>
+                    </Link>
+                    <Link to="/womens-fashion"
+                        className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                        onClick={onClose}
+                    >
+                        <span className="material-icons mr-3 text-orange-500">woman</span>
+                        <span className="group-hover:text-orange-600">Womens Fashion</span>
+                    </Link>
+                    <Link to="/collections"
+                        className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                        onClick={onClose}
+                    >
+                        <span className="material-icons mr-3 text-orange-500">grid_view</span>
+                        <span className="group-hover:text-orange-600">See All</span>
+                    </Link>
+                </div>
             </div>
+
+            {/* User Account Section - Only visible when logged in */}
+            {token && (
+                <div className="p-4 border-t bg-gray-50">
+                    <h3 className="text-lg font-semibold mb-3 text-gray-800">My Account</h3>
+                    <div className="space-y-2">
+                        <Link to="/profile"
+                            className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                            onClick={onClose}
+                        >
+                            <span className="material-icons mr-3 text-orange-500">person</span>
+                            <span className="group-hover:text-orange-600">My Profile</span>
+                        </Link>
+                        <Link to="/orders"
+                            className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                            onClick={onClose}
+                        >
+                            <span className="material-icons mr-3 text-orange-500">shopping_bag</span>
+                            <span className="group-hover:text-orange-600">My Orders</span>
+                        </Link>
+                        <button
+                            onClick={logout}
+                            className="flex items-center w-full p-2 hover:bg-red-50 rounded-lg group transition-colors"
+                        >
+                            <span className="material-icons mr-3 text-red-500">logout</span>
+                            <span className="group-hover:text-red-600">Logout</span>
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 
@@ -75,20 +182,35 @@ const AllSidebar = ({ isOpen, onClose }) => {
         <div className="p-4">
             <button
                 onClick={() => setCurrentSection("main")}
-                className="block p-2 mb-4 hover:bg-gray-100 w-full text-left"
+                className="flex items-center mb-4 p-2 hover:bg-orange-50 rounded-lg group transition-colors"
             >
-                &lt; Back
+                <span className="material-icons mr-2 text-orange-500">arrow_back</span>
+                <span className="group-hover:text-orange-600">Back</span>
             </button>
-            <h3 className="font-semibold mb-2">Mobiles, Tablets & More</h3>
-            <Link to="/mobile-phones" className="block p-2 hover:bg-gray-100">
-                Mobiles
-            </Link>
-            <Link to="/tablets" className="block p-2 hover:bg-gray-100">
-                Tablets
-            </Link>
-            <Link to="/mobile-accessories" className="block p-2 hover:bg-gray-100">
-                Mobile Accessories
-            </Link>
+            <h3 className="text-lg font-semibold mb-3 text-gray-800">Mobiles, Tablets & More</h3>
+            <div className="space-y-2">
+                <Link to="/mobile-phones"
+                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                    onClick={onClose}
+                >
+                    <span className="material-icons mr-3 text-orange-500">smartphone</span>
+                    <span className="group-hover:text-orange-600">Mobiles</span>
+                </Link>
+                <Link to="/tablets"
+                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                    onClick={onClose}
+                >
+                    <span className="material-icons mr-3 text-orange-500">tablet</span>
+                    <span className="group-hover:text-orange-600">Tablets</span>
+                </Link>
+                <Link to="/mobile-accessories"
+                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                    onClick={onClose}
+                >
+                    <span className="material-icons mr-3 text-orange-500">headphones</span>
+                    <span className="group-hover:text-orange-600">Mobile Accessories</span>
+                </Link>
+            </div>
         </div>
     );
 
@@ -96,20 +218,35 @@ const AllSidebar = ({ isOpen, onClose }) => {
         <div className="p-4">
             <button
                 onClick={() => setCurrentSection("main")}
-                className="block p-2 mb-4 hover:bg-gray-100 w-full text-left"
+                className="flex items-center mb-4 p-2 hover:bg-orange-50 rounded-lg group transition-colors"
             >
-                &lt; Back
+                <span className="material-icons mr-2 text-orange-500">arrow_back</span>
+                <span className="group-hover:text-orange-600">Back</span>
             </button>
-            <h3 className="font-semibold mb-2">Computers & Accessories</h3>
-            <Link to="/laptops" className="block p-2 hover:bg-gray-100">
-                Laptops
-            </Link>
-            <Link to="/desktops" className="block p-2 hover:bg-gray-100">
-                Desktops
-            </Link>
-            <Link to="/computer-accessories" className="block p-2 hover:bg-gray-100">
-                Computer Accessories
-            </Link>
+            <h3 className="text-lg font-semibold mb-3 text-gray-800">Computers & Accessories</h3>
+            <div className="space-y-2">
+                <Link to="/laptops"
+                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                    onClick={onClose}
+                >
+                    <span className="material-icons mr-3 text-orange-500">laptop</span>
+                    <span className="group-hover:text-orange-600">Laptops</span>
+                </Link>
+                <Link to="/desktops"
+                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                    onClick={onClose}
+                >
+                    <span className="material-icons mr-3 text-orange-500">desktop_windows</span>
+                    <span className="group-hover:text-orange-600">Desktops</span>
+                </Link>
+                <Link to="/computer-accessories"
+                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                    onClick={onClose}
+                >
+                    <span className="material-icons mr-3 text-orange-500">mouse</span>
+                    <span className="group-hover:text-orange-600">Computer Accessories</span>
+                </Link>
+            </div>
         </div>
     );
 
@@ -123,32 +260,86 @@ const AllSidebar = ({ isOpen, onClose }) => {
     }
 
     return (
-        <div
-            className={`fixed top-0 left-0 h-full w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 ${isOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
-                }`}
-        >
-            <div className="transition-opacity duration-300">
-                <div className="bg-orange-400 flex items-center justify-between mb-5 p-4">
-                    <div className="flex gap-4 items-center">
-                        <img
-                            src={assets.profile_icon || "/fallback-profile.png"}
-                            className="w-10"
-                            alt="Profile Icon"
-                        />
-                        <p className="text-2xl font-semibold">Hello, sign in</p>
+        <>
+            {/* Backdrop */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 bg-black/10 z-30 transition-opacity duration-300 ease-in-out"
+                    onClick={onClose}
+                />
+            )}
+
+            {/* Sidebar */}
+            <div
+                className={`fixed top-16 left-0 h-[calc(100vh-64px)] w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-40 ${isOpen ? "translate-x-0" : "-translate-x-full"
+                    }`}
+            >
+                {/* Header */}
+                <div className="bg-gradient-to-r from-orange-400 to-orange-500 p-4">
+                    <div className="flex items-center gap-3">
+                        {token ? (
+                            <>
+                                <button
+                                    onClick={handleProfileClick}
+                                    className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-md hover:bg-orange-50 transition-colors"
+                                >
+                                    <span className="material-icons text-orange-500 text-2xl">person</span>
+                                </button>
+                                <div>
+                                    <p className="text-white text-lg font-medium">Hello, {userData?.name || 'User'}</p>
+                                    <p className="text-white text-sm opacity-90">{userData?.email}</p>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-md">
+                                    <span className="material-icons text-orange-500 text-2xl">account_circle</span>
+                                </div>
+                                <Link
+                                    to="/login"
+                                    className="text-white text-lg hover:text-orange-100 transition-colors"
+                                    onClick={onClose}
+                                >
+                                    Hello, sign in
+                                </Link>
+                            </>
+                        )}
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="text-4xl top-2 right-4 text-gray-500 hover:text-gray-800 hover:rotate-90 transition-transform duration-300"
-                    >
-                        &times;
-                    </button>
+
+                    {/* Profile Info Popup */}
+                    {showProfileInfo && token && (
+                        <div className="mt-4 p-4 bg-white rounded-lg shadow-lg">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="material-icons text-orange-500">person</span>
+                                    <p className="text-gray-800">{userData?.name}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="material-icons text-orange-500">email</span>
+                                    <p className="text-gray-800">{userData?.email}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="material-icons text-orange-500">phone</span>
+                                    <p className="text-gray-800">{userData?.phone || 'Not provided'}</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowProfileInfo(false)}
+                                    className="mt-2 w-full p-2 bg-orange-100 text-orange-600 rounded hover:bg-orange-200 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-icons text-sm">close</span>
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
-                <div className="transition-transform duration-300 ease-in-out transform translate-x-0">
+
+                {/* Content */}
+                <div className="h-[calc(100%-88px)] overflow-y-auto">
                     {content}
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 
