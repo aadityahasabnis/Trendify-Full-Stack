@@ -471,72 +471,78 @@ const Orders = ({ token }) => {
   const exportInvoice = () => {
     if (!selectedOrder) return;
 
-    const doc = new jsPDF();
+    try {
+      const doc = new jsPDF();
 
-    // Add header
-    doc.setFontSize(20);
-    doc.text("Invoice", 105, 20, { align: "center" });
+      // Add header
+      doc.setFontSize(20);
+      doc.text("Invoice", 105, 20, { align: "center" });
 
-    // Add company details
-    doc.setFontSize(10);
-    doc.text("Trendify", 20, 30);
-    doc.text("123 Fashion Street", 20, 35);
-    doc.text("Style City, SC 12345", 20, 40);
-    doc.text("support@trendify.com", 20, 45);
+      // Add company details
+      doc.setFontSize(10);
+      doc.text("Trendify", 20, 30);
+      doc.text("123 Fashion Street", 20, 35);
+      doc.text("Style City, SC 12345", 20, 40);
+      doc.text("support@trendify.com", 20, 45);
 
-    // Add invoice details
-    doc.setFontSize(10);
-    doc.text(`Invoice #: ${selectedOrder._id}`, 150, 30, { align: "right" });
-    doc.text(`Date: ${new Date(selectedOrder.date).toLocaleDateString()}`, 150, 35, { align: "right" });
-    doc.text(`Payment: ${selectedOrder.payment ? "Paid" : "Pending"}`, 150, 40, { align: "right" });
-    doc.text(`Method: ${selectedOrder.paymentMethod}`, 150, 45, { align: "right" });
+      // Add invoice details
+      doc.setFontSize(10);
+      doc.text(`Invoice #: ${selectedOrder._id}`, 150, 30, { align: "right" });
+      doc.text(`Date: ${new Date(selectedOrder.date).toLocaleDateString()}`, 150, 35, { align: "right" });
+      doc.text(`Payment: ${selectedOrder.payment ? "Paid" : "Pending"}`, 150, 40, { align: "right" });
+      doc.text(`Method: ${selectedOrder.paymentMethod}`, 150, 45, { align: "right" });
 
-    // Add customer details
-    doc.setFontSize(12);
-    doc.text("Customer:", 20, 60);
-    doc.setFontSize(10);
-    doc.text(`${selectedOrder.address.firstName} ${selectedOrder.address.lastName}`, 20, 67);
-    doc.text(selectedOrder.address.street, 20, 72);
-    doc.text(`${selectedOrder.address.city}, ${selectedOrder.address.state} ${selectedOrder.address.zipcode}`, 20, 77);
-    doc.text(selectedOrder.address.country, 20, 82);
-    doc.text(`Phone: ${selectedOrder.address.phone}`, 20, 87);
+      // Add customer details
+      doc.setFontSize(12);
+      doc.text("Customer:", 20, 60);
+      doc.setFontSize(10);
+      doc.text(`${selectedOrder.address.firstName} ${selectedOrder.address.lastName}`, 20, 67);
+      doc.text(selectedOrder.address.street, 20, 72);
+      doc.text(`${selectedOrder.address.city}, ${selectedOrder.address.state} ${selectedOrder.address.zipcode}`, 20, 77);
+      doc.text(selectedOrder.address.country, 20, 82);
+      doc.text(`Phone: ${selectedOrder.address.phone}`, 20, 87);
 
-    // Add items table
-    const tableColumn = ["Item", "Quantity", "Size", "Price", "Total"];
-    const tableRows = [];
+      // Add items table
+      const tableColumn = ["Item", "Quantity", "Size", "Price", "Total"];
+      const tableRows = [];
 
-    selectedOrder.items.forEach(item => {
-      const itemData = [
-        item.name,
-        item.quantity,
-        item.size,
-        `${currency} ${item.price}`,
-        `${currency} ${item.price * item.quantity}`
-      ];
-      tableRows.push(itemData);
-    });
+      selectedOrder.items.forEach(item => {
+        const itemData = [
+          item.name,
+          item.quantity,
+          item.size || "-",
+          `${currency} ${item.price.toFixed(2)}`,
+          `${currency} ${(item.price * item.quantity).toFixed(2)}`
+        ];
+        tableRows.push(itemData);
+      });
 
-    doc.autoTable({
-      startY: 95,
-      head: [tableColumn],
-      body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [255, 102, 0] },
-      foot: [
-        ["", "", "", "Subtotal", `${currency} ${selectedOrder.amount}`],
-        ["", "", "", "Shipping", `${currency} 0`],
-        ["", "", "", "Total", `${currency} ${selectedOrder.amount}`]
-      ],
-      footStyles: { fillColor: [240, 240, 240] }
-    });
+      doc.autoTable({
+        startY: 95,
+        head: [tableColumn],
+        body: tableRows,
+        theme: 'grid',
+        headStyles: { fillColor: [255, 102, 0] },
+        foot: [
+          ["", "", "", "Subtotal", `${currency} ${selectedOrder.amount.toFixed(2)}`],
+          ["", "", "", "Shipping", `${currency} 0.00`],
+          ["", "", "", "Total", `${currency} ${selectedOrder.amount.toFixed(2)}`]
+        ],
+        footStyles: { fillColor: [240, 240, 240] }
+      });
 
-    // Add footer text
-    const finalY = doc.lastAutoTable.finalY + 20;
-    doc.setFontSize(10);
-    doc.text("Thank you for shopping with Trendify!", 105, finalY, { align: "center" });
+      // Add footer text
+      const finalY = doc.lastAutoTable.finalY + 20;
+      doc.setFontSize(10);
+      doc.text("Thank you for shopping with Trendify!", 105, finalY, { align: "center" });
 
-    // Save the PDF
-    doc.save(`Trendify_Invoice_${selectedOrder._id}.pdf`);
+      // Save the PDF
+      doc.save(`Trendify_Invoice_${selectedOrder._id}.pdf`);
+      toast.success("Invoice downloaded successfully");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate invoice: " + error.message);
+    }
   };
 
   // Export orders as CSV
@@ -599,22 +605,172 @@ const Orders = ({ token }) => {
     window.open(whatsappUrl, '_blank');
   };
 
-  // Contact customer via email
-  const contactViaEmail = (email, orderNumber) => {
+  // Contact customer via email with invoice
+  const contactViaEmail = async (email, orderNumber) => {
     if (!email) {
       toast.error("Email not available");
       return;
     }
 
-    // Create email subject and body
-    const subject = `Regarding Your Trendify Order #${orderNumber}`;
-    const body = `Hello,\n\nWe're reaching out regarding your Trendify order #${orderNumber}.\n\nPlease let us know if you have any questions or concerns.\n\nBest regards,\nThe Trendify Team`;
+    if (!selectedOrder) {
+      toast.error("Order details not available");
+      return;
+    }
 
-    // Create mailto URL
-    const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setIsUpdating(true);
 
-    // Open email client
-    window.location.href = mailtoUrl;
+    try {
+      // Create email subject and body with HTML
+      const subject = `Invoice for Your Trendify Order #${orderNumber.substring(orderNumber.length - 8)}`;
+
+      // Generate invoice HTML
+      const items = selectedOrder.items.map(item => `
+        <tr>
+          <td style="padding:8px;border-bottom:1px solid #eee;">${item.name}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${item.size || '-'}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${currency} ${item.price.toFixed(2)}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${currency} ${(item.price * item.quantity).toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      // Create HTML email content
+      const emailContent = `
+        <div style="max-width:600px;margin:0 auto;padding:20px;background-color:#f4f4f4;font-family:Arial,sans-serif;">
+          <div style="background:#ffffff;padding:30px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.05);color:#333;">
+            <h1 style="color:#FF6600;font-size:24px;text-align:center;">Invoice for Order #${selectedOrder._id.substring(selectedOrder._id.length - 8)}</h1>
+            
+            <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
+              <div>
+                <p style="font-size:14px;line-height:1.6;margin:0;">
+                  <strong>Trendify</strong><br/>
+                  123 Fashion Street<br/>
+                  Style City, SC 12345<br/>
+                  support@trendify.com
+                </p>
+              </div>
+              <div style="text-align:right;">
+                <p style="font-size:14px;line-height:1.6;margin:0;">
+                  <strong>Invoice #:</strong> ${selectedOrder._id}<br/>
+                  <strong>Date:</strong> ${new Date(selectedOrder.date).toLocaleDateString()}<br/>
+                  <strong>Payment:</strong> ${selectedOrder.payment ? "Paid" : "Pending"}<br/>
+                  <strong>Method:</strong> ${selectedOrder.paymentMethod}
+                </p>
+              </div>
+            </div>
+            
+            <div style="margin-bottom:20px;">
+              <h3 style="font-size:16px;margin-bottom:10px;">Customer:</h3>
+              <p style="font-size:14px;line-height:1.6;margin:0;">
+                ${selectedOrder.address.firstName} ${selectedOrder.address.lastName}<br/>
+                ${selectedOrder.address.street}<br/>
+                ${selectedOrder.address.city}, ${selectedOrder.address.state} ${selectedOrder.address.zipcode}<br/>
+                ${selectedOrder.address.country}<br/>
+                Phone: ${selectedOrder.address.phone}
+              </p>
+            </div>
+            
+            <div style="margin-bottom:20px;">
+              <h3 style="font-size:16px;margin-bottom:10px;">Order Items:</h3>
+              <table style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr style="background-color:#f4f4f4;">
+                    <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Item</th>
+                    <th style="padding:10px;text-align:center;border-bottom:2px solid #ddd;">Quantity</th>
+                    <th style="padding:10px;text-align:center;border-bottom:2px solid #ddd;">Size</th>
+                    <th style="padding:10px;text-align:right;border-bottom:2px solid #ddd;">Price</th>
+                    <th style="padding:10px;text-align:right;border-bottom:2px solid #ddd;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${items}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="3" style="padding:8px;"></td>
+                    <td style="padding:8px;text-align:right;font-weight:bold;">Subtotal</td>
+                    <td style="padding:8px;text-align:right;">${currency} ${selectedOrder.amount.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="3" style="padding:8px;"></td>
+                    <td style="padding:8px;text-align:right;font-weight:bold;">Shipping</td>
+                    <td style="padding:8px;text-align:right;">${currency} 0.00</td>
+                  </tr>
+                  <tr style="background-color:#f4f4f4;">
+                    <td colspan="3" style="padding:8px;"></td>
+                    <td style="padding:8px;text-align:right;font-weight:bold;">Total</td>
+                    <td style="padding:8px;text-align:right;font-weight:bold;">${currency} ${selectedOrder.amount.toFixed(2)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            
+            <div style="text-align:center;margin-top:30px;padding-top:20px;border-top:1px solid #eee;">
+              <p style="font-size:14px;color:#666;">Thank you for shopping with Trendify!</p>
+              <p style="font-size:12px;color:#999;margin-top:15px;">
+                If you have any questions, please contact us at
+                <a href="mailto:support@trendify.com" style="color:#FF6600;">support@trendify.com</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Check if we're in development mode (for demo/testing purposes)
+      const isDevelopmentMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+      // Alternative implementation for development environment
+      if (isDevelopmentMode) {
+        // Create simulated response with a timeout to simulate server response
+        setTimeout(() => {
+          toast.success("Invoice sent successfully! (Development mode)");
+          setShowInvoice(false);
+          setIsUpdating(false);
+        }, 1500);
+        return;
+      }
+
+      // Send API request to send email
+      const response = await axios.post(
+        `${backendUrl}/api/email/send-invoice`,
+        {
+          email: email,
+          subject: subject,
+          html: emailContent,
+          orderId: selectedOrder._id
+        },
+        {
+          headers: { token },
+          timeout: 10000 // 10 second timeout
+        }
+      );
+
+      if (response.data.success) {
+        toast.success("Invoice sent successfully!");
+        setShowInvoice(false);
+      } else {
+        toast.error(response.data.message || "Failed to send invoice");
+      }
+    } catch (error) {
+      console.error("Error sending invoice:", error);
+
+      // Handle different types of errors
+      if (error.code === 'ECONNABORTED') {
+        toast.error("Request timed out. Please try again later.");
+      } else if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        toast.error(`Server error: ${error.response.data.message || error.response.status}`);
+      } else if (error.request) {
+        // The request was made but no response was received
+        toast.error("No response from server. Please check if the backend is running.");
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        toast.error(`Failed to send invoice: ${error.message}`);
+      }
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   // Detect delayed orders (orders older than 3 days not marked as delivered)
@@ -1063,7 +1219,7 @@ const Orders = ({ token }) => {
                   {currency} {order.amount}
                 </td>
                 <td className="px-2 sm:px-4 py-3">
-                  <div className="flex items-center justify-center gap-2 bg-gray-50 rounded-lg py-1 px-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-center gap-2 bg-gray-50 rounded p-1" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1264,6 +1420,412 @@ const Orders = ({ token }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Modal */}
+      {showInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-4xl w-full mx-4 border border-gray-200">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-800">Invoice Preview</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowInvoice(false)}
+                  className="p-2 text-gray-500 hover:text-gray-700 rounded-md"
+                >
+                  <i className="material-icons">close</i>
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-6 p-4 border border-gray-200 rounded-lg" ref={invoiceRef}>
+              <div className="flex justify-between mb-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Invoice</h2>
+                  <p className="text-gray-600">Trendify</p>
+                  <p className="text-gray-600">123 Fashion Street</p>
+                  <p className="text-gray-600">Style City, SC 12345</p>
+                  <p className="text-gray-600">support@trendify.com</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-gray-600">Invoice #: {selectedOrder?._id}</p>
+                  <p className="text-gray-600">Date: {formatDateTime(selectedOrder?.date)}</p>
+                  <p className="text-gray-600">Payment: {selectedOrder?.payment ? "Paid" : "Pending"}</p>
+                  <p className="text-gray-600">Method: {selectedOrder?.paymentMethod}</p>
+                </div>
+              </div>
+
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Customer:</h3>
+                <p className="text-gray-600">{selectedOrder?.address.firstName} {selectedOrder?.address.lastName}</p>
+                <p className="text-gray-600">{selectedOrder?.address.street}</p>
+                <p className="text-gray-600">{selectedOrder?.address.city}, {selectedOrder?.address.state} {selectedOrder?.address.zipcode}</p>
+                <p className="text-gray-600">{selectedOrder?.address.country}</p>
+                <p className="text-gray-600">Phone: {selectedOrder?.address.phone}</p>
+                {selectedOrder?.address.email && (
+                  <p className="text-gray-600">Email: {selectedOrder?.address.email}</p>
+                )}
+              </div>
+
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Order Items:</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Item</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Quantity</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Size</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Price</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {selectedOrder?.items.map((item, index) => (
+                        <tr key={index}>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center">
+                              {item.image && item.image[0] && (
+                                <img src={item.image[0]} alt={item.name} className="w-10 h-10 mr-3 object-cover rounded" />
+                              )}
+                              <span className="text-sm text-gray-700">{item.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-center text-sm text-gray-700">{item.quantity}</td>
+                          <td className="px-4 py-2 text-center text-sm text-gray-700">{item.size || '-'}</td>
+                          <td className="px-4 py-2 text-right text-sm text-gray-700">{currency} {item.price.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-right text-sm text-gray-700">{currency} {(item.price * item.quantity).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="text-center mt-8 text-gray-600 text-sm">
+                <p>Thank you for shopping with Trendify!</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setShowInvoice(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={exportInvoice}
+                className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 flex items-center"
+              >
+                <i className="material-icons mr-1" style={{ fontSize: '18px' }}>download</i>
+                Download PDF
+              </button>
+              <button
+                onClick={() => {
+                  contactViaEmail(selectedOrder?.address.email, selectedOrder?._id);
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center"
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <i className="material-icons mr-1" style={{ fontSize: '18px' }}>email</i>
+                    Email Invoice
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Details Modal */}
+      {showOrderDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-5xl w-full mx-4 border border-gray-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-800">Order Details</h3>
+              <button
+                onClick={closeOrderDetails}
+                className="p-2 text-gray-500 hover:text-gray-700 rounded-md"
+              >
+                <i className="material-icons">close</i>
+              </button>
+            </div>
+
+            {selectedOrder && (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="bg-gray-50 p-4 rounded-lg flex-1">
+                    <h4 className="font-medium text-gray-700 mb-3">Order Information</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <p className="text-sm text-gray-500">Order ID:</p>
+                      <p className="text-sm font-medium">{selectedOrder._id}</p>
+
+                      <p className="text-sm text-gray-500">Date:</p>
+                      <p className="text-sm font-medium">{formatDateTime(selectedOrder.date)}</p>
+
+                      <p className="text-sm text-gray-500">Status:</p>
+                      <p className="text-sm font-medium">{selectedOrder.status}</p>
+
+                      <p className="text-sm text-gray-500">Payment:</p>
+                      <p className="text-sm font-medium">{selectedOrder.payment ? "Paid" : "Pending"}</p>
+
+                      <p className="text-sm text-gray-500">Method:</p>
+                      <p className="text-sm font-medium">{selectedOrder.paymentMethod}</p>
+
+                      <p className="text-sm text-gray-500">Amount:</p>
+                      <p className="text-sm font-medium">{currency} {selectedOrder.amount.toFixed(2)}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg flex-1">
+                    <h4 className="font-medium text-gray-700 mb-3">Customer Information</h4>
+                    <p className="text-sm font-medium">{selectedOrder.address.firstName} {selectedOrder.address.lastName}</p>
+                    <p className="text-sm text-gray-600">{selectedOrder.address.street}</p>
+                    <p className="text-sm text-gray-600">{selectedOrder.address.city}, {selectedOrder.address.state} {selectedOrder.address.zipcode}</p>
+                    <p className="text-sm text-gray-600">{selectedOrder.address.country}</p>
+                    <p className="text-sm text-gray-600 mt-2">Phone: {selectedOrder.address.phone}</p>
+                    {selectedOrder.address.email && (
+                      <p className="text-sm text-gray-600">Email: {selectedOrder.address.email}</p>
+                    )}
+
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        onClick={() => contactViaWhatsApp(selectedOrder.address.phone, selectedOrder._id)}
+                        className="px-3 py-1.5 bg-green-500 text-white rounded-md hover:bg-green-600 text-sm flex items-center"
+                      >
+                        <i className="material-icons mr-1" style={{ fontSize: '14px' }}>chat</i>
+                        WhatsApp
+                      </button>
+
+                      {selectedOrder.address.email && (
+                        <button
+                          onClick={() => contactViaEmail(selectedOrder.address.email, selectedOrder._id)}
+                          className="px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm flex items-center"
+                        >
+                          <i className="material-icons mr-1" style={{ fontSize: '14px' }}>email</i>
+                          Email
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-700 mb-3">Order Items</h4>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Product</th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Quantity</th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Size</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Price</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedOrder.items.map((item, index) => (
+                          <tr key={index}>
+                            <td className="px-4 py-2">
+                              <div className="flex items-center">
+                                {item.image && item.image[0] && (
+                                  <img src={item.image[0]} alt={item.name} className="w-10 h-10 mr-3 object-cover rounded" />
+                                )}
+                                <span className="text-sm text-gray-700">{item.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2 text-center text-sm text-gray-700">{item.quantity}</td>
+                            <td className="px-4 py-2 text-center text-sm text-gray-700">{item.size || '-'}</td>
+                            <td className="px-4 py-2 text-right text-sm text-gray-700">{currency} {item.price.toFixed(2)}</td>
+                            <td className="px-4 py-2 text-right text-sm text-gray-700">{currency} {(item.price * item.quantity).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50">
+                        <tr>
+                          <td colSpan="4" className="px-4 py-2 text-right text-sm font-medium text-gray-900">Total</td>
+                          <td className="px-4 py-2 text-right text-sm font-medium text-gray-900">{currency} {selectedOrder.amount.toFixed(2)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-medium text-gray-700">Order Timeline</h4>
+                    <button
+                      onClick={() => setShowNoteModal(true)}
+                      className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 text-sm flex items-center"
+                    >
+                      <i className="material-icons mr-1" style={{ fontSize: '14px' }}>note_add</i>
+                      Add Note
+                    </button>
+                  </div>
+
+                  {orderTimeline.length === 0 ? (
+                    <p className="text-sm text-gray-500 py-2">No timeline data available</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {orderTimeline.map((entry, index) => (
+                        <div key={index} className="flex gap-3 border-l-2 border-gray-300 pl-3">
+                          <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">
+                              {entry.status || entry.action || "Update"}
+                            </p>
+                            <p className="text-xs text-gray-500">{formatDateTime(entry.timestamp)}</p>
+                            {entry.note && <p className="text-sm text-gray-600 mt-1">{entry.note}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    onClick={closeOrderDetails}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => generateInvoice(selectedOrder)}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 flex items-center"
+                  >
+                    <i className="material-icons mr-1" style={{ fontSize: '18px' }}>receipt</i>
+                    Generate Invoice
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Add Note Modal */}
+      {showNoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200">
+            <h3 className="text-xl font-semibold mb-4 text-gray-800">Add Order Note</h3>
+
+            <div className="mb-5">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Note</label>
+              <textarea
+                value={orderNote}
+                onChange={(e) => setOrderNote(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500 min-h-[120px]"
+                placeholder="Enter your note about this order..."
+              ></textarea>
+            </div>
+
+            <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 justify-end">
+              <button
+                onClick={() => setShowNoteModal(false)}
+                className="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveOrderNote}
+                className="px-5 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-300"
+              >
+                Save Note
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Analytics Modal */}
+      {showAnalytics && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-4xl w-full mx-4 border border-gray-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-800">Analytics Dashboard</h3>
+              <button
+                onClick={() => setShowAnalytics(false)}
+                className="p-2 text-gray-500 hover:text-gray-700 rounded-md"
+              >
+                <i className="material-icons">close</i>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="text-blue-800 text-sm font-medium mb-1">Total Revenue</h4>
+                <p className="text-2xl font-semibold text-blue-900">{currency} {analytics.totalRevenue.toFixed(2)}</p>
+              </div>
+
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h4 className="text-green-800 text-sm font-medium mb-1">Average Order Value</h4>
+                <p className="text-2xl font-semibold text-green-900">{currency} {analytics.avgOrderValue.toFixed(2)}</p>
+              </div>
+
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <h4 className="text-purple-800 text-sm font-medium mb-1">Total Orders</h4>
+                <p className="text-2xl font-semibold text-purple-900">{analytics.totalOrders}</p>
+              </div>
+
+              <div className="bg-amber-50 p-4 rounded-lg">
+                <h4 className="text-amber-800 text-sm font-medium mb-1">Pending Orders</h4>
+                <p className="text-2xl font-semibold text-amber-900">{analytics.pendingOrders}</p>
+              </div>
+            </div>
+
+            <div className="mb-8">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4">Top Selling Products</h4>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity Sold</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {topProducts.map((product, index) => (
+                      <tr key={index}>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {product.image && (
+                              <img src={product.image} alt={product.name} className="w-10 h-10 rounded-md object-cover mr-3" />
+                            )}
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                              <div className="text-xs text-gray-500">ID: {product.id.substring(0, 8)}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-medium">{product.quantity}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-medium">{currency} {product.revenue.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowAnalytics(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
