@@ -1,13 +1,13 @@
 import express from "express";
-import { 
-    loginUser, 
-    registerUser, 
-    adminLogin, 
-    getUserProfile, 
-    requestPasswordReset, 
-    resetPassword 
+import {
+    loginUser,
+    registerUser,
+    adminLogin,
+    getUserProfile,
+    requestPasswordReset,
+    resetPassword
 } from "../controllers/userController.js";
-import authUser from "../middleware/auth.js";
+import { authUser } from "../middleware/authMiddleware.js";
 
 const userRouter = express.Router();
 

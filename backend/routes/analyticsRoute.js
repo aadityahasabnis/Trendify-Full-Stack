@@ -1,18 +1,23 @@
-import express from 'express';
-import { getTotalSales, getPendingOrders, getLowStockAlerts, getTopProducts, getReviews } from '../controllers/analyticsController.js';
-import adminAuth from "../middleware/adminAuth.js";
+import express from "express";
+import { adminAuth } from "../middleware/authMiddleware.js";
+import {
+    getTotalSales,
+    getPendingOrders,
+    getLowStockAlerts,
+    getTopProducts,
+    getReviews
+} from "../controllers/analyticsController.js";
 
+const analyticsRouter = express.Router();
 
-const router = express.Router();
-
-// Apply authentication middleware to all routes
-router.use(adminAuth);
+// Apply admin auth middleware to all routes
+analyticsRouter.use(adminAuth);
 
 // Analytics routes
-router.get('/total-sales', getTotalSales);
-router.get('/pending-orders', getPendingOrders);
-router.get('/low-stock-alerts', getLowStockAlerts);
-router.get('/top-products', getTopProducts);
-router.get('/reviews', getReviews);
+analyticsRouter.get('/total-sales', getTotalSales);
+analyticsRouter.get('/pending-orders', getPendingOrders);
+analyticsRouter.get('/low-stock-alerts', getLowStockAlerts);
+analyticsRouter.get('/top-products', getTopProducts);
+analyticsRouter.get('/reviews', getReviews);
 
-export default router;
+export default analyticsRouter;

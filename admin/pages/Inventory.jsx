@@ -93,33 +93,39 @@ const Inventory = ({ token }) => {
         try {
             // Fetch real history data from the backend
             const response = await axios.get(
-                `${backendUrl}/api/inventory/history/product/${product._id}`,
+                `${backendUrl}/api/inventory/history/${product._id}`,
                 { headers: { token } }
             );
 
-            if (response.data.success) {
-                // Ensure we handle the image property correctly
-                setHistoryProduct({
-                    ...response.data.product,
-                    // If the API returns an array of images, use the first one, otherwise use what was provided
-                    image: Array.isArray(response.data.product.image)
-                        ? response.data.product.image[0]
-                        : response.data.product.image
-                });
+            if (response.data) {
+                // Set the product data for the history modal
+                const productData = {
+                    _id: product._id,
+                    name: product.name,
+                    stock: product.stock,
+                    categoryName: product.categoryName || 'Unknown Category',
+                    categoryId: product.categoryId,
+                    image: Array.isArray(product.image) ? product.image[0] : product.image
+                };
 
-                setStockHistory(response.data.history.map(item => ({
+                setHistoryProduct(productData);
+
+                // Transform inventory history items for the UI
+                const historyItems = response.data.map(item => ({
                     id: item._id,
                     date: item.timestamp,
-                    action: item.action.charAt(0).toUpperCase() + item.action.slice(1).replace('_', ' '),
+                    action: item.action.charAt(0).toUpperCase() + item.action.slice(1).replace(/_/g, ' '),
                     previous: item.previousStock,
                     new: item.newStock,
                     change: item.change > 0 ? `+${item.change}` : `${item.change}`,
                     user: item.userId ? item.userId.name : 'System',
-                    note: item.note,
+                    note: item.note || '',
                     orderId: item.orderId ? item.orderId._id : null
-                })));
+                }));
+
+                setStockHistory(historyItems);
             } else {
-                toast.error(response.data.message || "Failed to fetch stock history");
+                toast.error("Failed to fetch stock history");
                 setStockHistory([]);
             }
         } catch (error) {

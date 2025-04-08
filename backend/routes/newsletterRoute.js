@@ -1,6 +1,6 @@
 import express from 'express';
 import { subscribe, unsubscribe, sendNewsletter, getAllSubscribers } from '../controllers/newsletterController.js';
-import adminAuth from '../middleware/adminAuth.js';
+import { adminAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 

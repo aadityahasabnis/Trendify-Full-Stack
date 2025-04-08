@@ -4,25 +4,29 @@ import {
     getAllInventoryHistory,
     exportInventoryHistory,
     getInventoryStats,
-    exportInventoryExcel
+    exportInventoryExcel,
+    createInventoryHistory
 } from '../controllers/inventoryController.js';
-import { isAdmin } from '../middlewares/authMiddleware.js';
+import { isAdmin, adminAuth } from '../middleware/authMiddleware.js';
+import { logInventoryChangeMiddleware } from '../middleware/inventoryMiddleware.js';
 
 const inventoryRouter = express.Router();
 
-// Get inventory history for a specific product - Admin only
-inventoryRouter.get('/history/product/:productId', isAdmin, getProductInventoryHistory);
+// Apply admin authentication to all routes
+inventoryRouter.use(adminAuth);
 
-// Get all inventory history with filtering - Admin only
-inventoryRouter.get('/history', isAdmin, getAllInventoryHistory);
+// Routes for inventory history
+inventoryRouter.post('/history', logInventoryChangeMiddleware, createInventoryHistory);
+inventoryRouter.get('/history', getAllInventoryHistory);
+inventoryRouter.get('/history/:productId', getProductInventoryHistory);
 
 // Export inventory history as CSV - Admin only
-inventoryRouter.get('/export/csv', isAdmin, exportInventoryHistory);
+inventoryRouter.get('/export/csv', adminAuth, exportInventoryHistory);
 
 // Export inventory as Excel - Admin only
-inventoryRouter.get('/export/excel', isAdmin, exportInventoryExcel);
+inventoryRouter.get('/export/excel', adminAuth, exportInventoryExcel);
 
 // Get inventory statistics for dashboard - Admin only
-inventoryRouter.get('/stats', isAdmin, getInventoryStats);
+inventoryRouter.get('/stats', adminAuth, getInventoryStats);
 
 export default inventoryRouter; 

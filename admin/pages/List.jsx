@@ -208,15 +208,15 @@ const List = ({ token }) => {
 	};
 
 	return (
-		<div className="bg-white rounded-lg shadow-sm p-6">
-			<div className="flex justify-between items-center mb-6">
-				<h1 className="text-2xl font-semibold text-gray-800">Products List</h1>
-				<div className="flex gap-2">
+		<div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+			<div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+				<h1 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-3 sm:mb-0">Products List</h1>
+				<div className="flex gap-2 w-full sm:w-auto">
 					{/* Status Filter */}
 					<select
 						value={activeFilter}
 						onChange={(e) => setActiveFilter(e.target.value)}
-						className="px-3 py-2 border border-gray-300 bg-white rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+						className="px-3 py-2 border border-gray-300 bg-white rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 flex-grow sm:flex-grow-0"
 					>
 						<option value="all">All Products</option>
 						<option value="active">Active Products</option>
@@ -226,10 +226,10 @@ const List = ({ token }) => {
 					{/* Refresh Button */}
 					<button
 						onClick={fetchList}
-						className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors"
+						className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors"
 					>
 						<i className="material-icons" style={{ fontSize: '18px' }}>refresh</i>
-						Refresh
+						<span className="hidden sm:inline text-sm">Refresh</span>
 					</button>
 				</div>
 			</div>
@@ -243,17 +243,17 @@ const List = ({ token }) => {
 					<table className="min-w-full divide-y divide-gray-200">
 						<thead>
 							<tr className="bg-gray-50">
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+								<th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+								<th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Category</th>
+								<th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Price</th>
+								<th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Stock</th>
+								<th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
 									<div className="flex items-center">
 										<span>Status</span>
 										<span className="ml-1 w-2 h-2 rounded-full bg-gray-300"></span>
 									</div>
 								</th>
-								<th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+								<th className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
 							</tr>
 						</thead>
 						<tbody className="bg-white divide-y divide-gray-200">
@@ -264,34 +264,42 @@ const List = ({ token }) => {
 										className={`hover:bg-gray-50 cursor-pointer transition-colors ${!item.isActive ? 'bg-gray-50 opacity-75' : ''}`}
 									>
 										<td
-											className="px-6 py-4 whitespace-nowrap"
+											className="px-3 sm:px-6 py-4 whitespace-nowrap"
 											onClick={() => openProductModal(item)}
 										>
 											<div className="flex items-center">
-												<div className="h-10 w-10 flex-shrink-0">
-													<img className={`h-10 w-10 rounded-md object-cover ${!item.isActive ? 'grayscale' : ''}`} src={item.image[0]} alt="" />
+												<div className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
+													<img className={`h-8 w-8 sm:h-10 sm:w-10 rounded-md object-cover ${!item.isActive ? 'grayscale' : ''}`} src={item.image[0]} alt="" />
 												</div>
-												<div className="ml-4">
+												<div className="ml-3 sm:ml-4">
 													<div className={`text-sm font-medium ${!item.isActive ? 'text-gray-500' : 'text-gray-900'}`}>{item.name}</div>
-													<div className="text-xs text-gray-500">{item.sizes?.join(", ") || "No sizes"}</div>
+													<div className="text-xs text-gray-500 hidden sm:block">{item.sizes?.join(", ") || "No sizes"}</div>
+
+													{/* Mobile-only price and stock */}
+													<div className="flex items-center space-x-2 sm:hidden mt-1">
+														<span className="text-xs font-medium">{currency}{item.price}</span>
+														<span className={`text-xs font-medium ${item.stock > 5 ? 'text-green-600' : item.stock > 0 ? 'text-yellow-600' : 'text-red-600'}`}>
+															(Stock: {item.stock || 0})
+														</span>
+													</div>
 												</div>
 											</div>
 										</td>
 										<td
-											className="px-6 py-4 whitespace-nowrap"
+											className="px-3 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell"
 											onClick={() => openProductModal(item)}
 										>
 											<div className="text-sm font-medium text-gray-900">{item.categoryName || item.categoryId}</div>
 											<div className="text-xs text-gray-500">{item.subcategoryName || item.subcategoryId}</div>
 										</td>
 										<td
-											className="px-6 py-4 whitespace-nowrap"
+											className="px-3 sm:px-6 py-4 whitespace-nowrap hidden sm:table-cell"
 											onClick={() => openProductModal(item)}
 										>
 											<div className="text-sm font-medium text-gray-900">{currency}{item.price}</div>
 										</td>
 										<td
-											className="px-6 py-4 whitespace-nowrap"
+											className="px-3 sm:px-6 py-4 whitespace-nowrap hidden sm:table-cell"
 											onClick={() => openProductModal(item)}
 										>
 											<div className={`text-sm font-medium ${item.stock > 5 ? 'text-green-600' : item.stock > 0 ? 'text-yellow-600' : 'text-red-600'}`}>
@@ -299,31 +307,31 @@ const List = ({ token }) => {
 											</div>
 										</td>
 										<td
-											className="px-6 py-4 whitespace-nowrap"
+											className="px-3 sm:px-6 py-4 whitespace-nowrap"
 											onClick={() => openProductModal(item)}
 										>
 											<div className="flex items-center">
 												{item.isActive ? (
-													<div className="flex items-center px-3 py-1.5 bg-green-50 border border-green-200 text-green-700 rounded-full">
-														<span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+													<div className="flex items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-green-50 border border-green-200 text-green-700 rounded-full">
+														<span className="w-2 h-2 bg-green-500 rounded-full mr-1 sm:mr-2"></span>
 														<span className="text-xs font-medium">Active</span>
 													</div>
 												) : (
-													<div className="flex items-center px-3 py-1.5 bg-red-50 border border-red-200 text-red-700 rounded-full">
-														<span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+													<div className="flex items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-red-50 border border-red-200 text-red-700 rounded-full">
+														<span className="w-2 h-2 bg-red-500 rounded-full mr-1 sm:mr-2"></span>
 														<span className="text-xs font-medium">Inactive</span>
 													</div>
 												)}
 											</div>
 										</td>
-										<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-											<div className="flex justify-end gap-2">
+										<td className="px-3 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+											<div className="flex justify-end gap-1 sm:gap-2">
 												<button
 													onClick={(e) => {
 														e.stopPropagation();
 														updateProductStatus(item._id, !item.isActive);
 													}}
-													className={`py-1.5 px-3 rounded-md flex items-center gap-1.5 ${item.isActive
+													className={`py-1 px-2 sm:py-1.5 sm:px-3 rounded-md flex items-center gap-1 sm:gap-1.5 ${item.isActive
 														? 'bg-red-50 border border-red-200 text-red-700 hover:bg-red-100'
 														: 'bg-green-50 border border-green-200 text-green-700 hover:bg-green-100'
 														}`}
@@ -341,7 +349,7 @@ const List = ({ token }) => {
 														e.stopPropagation();
 														openProductModal(item);
 													}}
-													className="py-1.5 px-3 rounded-md flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100"
+													className="py-1 px-2 sm:py-1.5 sm:px-3 rounded-md flex items-center gap-1 sm:gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100"
 													title="View Details"
 												>
 													<span className="w-2 h-2 bg-blue-500 rounded-full"></span>
@@ -352,7 +360,7 @@ const List = ({ token }) => {
 														e.stopPropagation();
 														openDeleteConfirmation(item);
 													}}
-													className="py-1.5 px-3 rounded-md flex items-center gap-1.5 bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100"
+													className="py-1 px-2 sm:py-1.5 sm:px-3 rounded-md flex items-center gap-1 sm:gap-1.5 bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100"
 													title="Delete"
 												>
 													<span className="w-2 h-2 bg-gray-500 rounded-full"></span>
@@ -386,7 +394,7 @@ const List = ({ token }) => {
 
 			{/* Product Details Modal */}
 			{showModal && selectedProduct && (
-				<div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
+				<div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
 					<div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-xl transform transition-all" onClick={e => e.stopPropagation()}>
 						<div className="flex justify-between items-center p-4 border-b">
 							<h2 className="text-xl font-semibold text-gray-800">Product Details</h2>
@@ -396,21 +404,21 @@ const List = ({ token }) => {
 						</div>
 
 						{/* Modal Tabs */}
-						<div className="flex border-b">
+						<div className="flex border-b overflow-x-auto">
 							<button
-								className={`px-4 py-2 text-sm font-medium ${modalTab === 'details' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
+								className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${modalTab === 'details' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
 								onClick={() => setModalTab('details')}
 							>
 								Details
 							</button>
 							<button
-								className={`px-4 py-2 text-sm font-medium ${modalTab === 'reviews' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
+								className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${modalTab === 'reviews' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
 								onClick={() => setModalTab('reviews')}
 							>
 								Reviews ({productReviews.length})
 							</button>
 							<button
-								className={`px-4 py-2 text-sm font-medium ${modalTab === 'orders' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
+								className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${modalTab === 'orders' ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
 								onClick={() => setModalTab('orders')}
 							>
 								Orders ({productOrders.length})
@@ -448,7 +456,7 @@ const List = ({ token }) => {
 										<h3 className="text-xl font-medium text-gray-800 mb-2">{selectedProduct.name}</h3>
 										<p className="text-sm text-gray-600 mb-4">{selectedProduct.description}</p>
 
-										<div className="grid grid-cols-2 gap-4 mb-4">
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
 											<div>
 												<h4 className="text-sm font-medium text-gray-500">Price</h4>
 												<p className="text-lg font-semibold text-gray-800">{currency}{selectedProduct.price}</p>
@@ -505,8 +513,8 @@ const List = ({ token }) => {
 										<div className="space-y-4">
 											{productReviews.map(review => (
 												<div key={review._id} className="border rounded-lg p-4">
-													<div className="flex justify-between">
-														<div className="flex items-center gap-2">
+													<div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
+														<div className="flex items-center gap-2 mb-2 sm:mb-0">
 															<div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
 																<i className="material-icons text-gray-500 text-sm">person</i>
 															</div>
@@ -541,22 +549,24 @@ const List = ({ token }) => {
 											<table className="min-w-full divide-y divide-gray-200">
 												<thead>
 													<tr className="bg-gray-50">
-														<th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
-														<th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-														<th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-														<th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-														<th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+														<th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
+														<th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+														<th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+														<th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+														<th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
 													</tr>
 												</thead>
 												<tbody className="bg-white divide-y divide-gray-200">
 													{productOrders.map(order => (
 														<tr key={order._id} className="hover:bg-gray-50">
-															<td className="px-4 py-2 whitespace-nowrap text-sm">{order._id}</td>
-															<td className="px-4 py-2 whitespace-nowrap text-sm">{formatDate(order.date)}</td>
-															<td className="px-4 py-2 whitespace-nowrap text-sm">
+															<td className="px-2 sm:px-4 py-2 whitespace-nowrap text-xs sm:text-sm overflow-hidden text-ellipsis" style={{ maxWidth: '100px' }}>
+																{order._id}
+															</td>
+															<td className="px-2 sm:px-4 py-2 whitespace-nowrap text-xs sm:text-sm">{formatDate(order.date)}</td>
+															<td className="px-2 sm:px-4 py-2 whitespace-nowrap text-xs sm:text-sm">
 																{order.items.find(item => item.productId === selectedProduct._id)?.quantity || 1}
 															</td>
-															<td className="px-4 py-2 whitespace-nowrap text-sm">
+															<td className="px-2 sm:px-4 py-2 whitespace-nowrap text-xs sm:text-sm">
 																<span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' :
 																	order.status === 'Shipped' ? 'bg-blue-100 text-blue-800' :
 																		'bg-yellow-100 text-yellow-800'
@@ -564,7 +574,7 @@ const List = ({ token }) => {
 																	{order.status}
 																</span>
 															</td>
-															<td className="px-4 py-2 whitespace-nowrap text-sm font-medium">{currency}{order.amount}</td>
+															<td className="px-2 sm:px-4 py-2 whitespace-nowrap text-xs sm:text-sm font-medium">{currency}{order.amount}</td>
 														</tr>
 													))}
 												</tbody>

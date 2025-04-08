@@ -1,36 +1,24 @@
 import express from "express";
 import {
     addReview,
+    getUserReviews,
     getProductReviews,
     deleteReview
 } from "../controllers/reviewController.js";
-import authUser from "../middleware/auth.js";
-import adminAuth from "../middleware/adminAuth.js";
+import { authUser, adminAuth } from "../middleware/authMiddleware.js";
 
 const reviewRouter = express.Router();
 
-// Get reviews for a specific product (public)
+// Get user reviews (user only)
+reviewRouter.get('/user', authUser, getUserReviews);
+
+// Get product reviews (public)
 reviewRouter.get('/product/:productId', getProductReviews);
 
-// Add a review (authenticated users only)
-reviewRouter.post(
-    '/add',
-    authUser, // Middleware to authenticate the user
-    addReview
-);
+// Add review (user only) 
+reviewRouter.post('/add', authUser, addReview);
 
-// Delete a review (admin or review owner only)
-reviewRouter.delete(
-    '/:reviewId',
-    authUser,
-    deleteReview
-);
-
-// Admin route to delete any review
-reviewRouter.delete(
-    '/admin/:reviewId',
-    adminAuth, // Middleware to authenticate admin
-    deleteReview
-);
+// Delete a review (Admin or user who created the review)
+reviewRouter.delete('/:reviewId', authUser, deleteReview);
 
 export default reviewRouter;

@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import InventoryHistory from '../models/inventoryHistoryModel.js';
 import productModel from '../models/productModel.js';
 import { Category, Subcategory } from '../models/categoryModel.js';
+import asyncHandler from "express-async-handler";
+import Product from "../models/productModel.js";
 
 // Function to log any inventory change
 export const logInventoryChange = async (changeData) => {
@@ -44,55 +46,110 @@ export const logInventoryChange = async (changeData) => {
     }
 };
 
-// Get inventory history for a specific product
-export const getProductInventoryHistory = async (req, res) => {
-    try {
-        const { productId } = req.params;
+// @desc    Create inventory history entry
+// @route   POST /api/inventory/history
+// @access  Admin
+export const createInventoryHistory = asyncHandler(async (req, res) => {
+    const {
+        productId,
+        previousStock,
+        newStock,
+        change,
+        action,
+        previousStatus,
+        newStatus,
+        orderId,
+        note
+    } = req.body;
 
-        if (!mongoose.Types.ObjectId.isValid(productId)) {
-            return res.status(400).json({ success: false, message: "Invalid product ID" });
-        }
-
-        // Get the product first to check if it exists
-        const product = await productModel.findById(productId);
-        if (!product) {
-            return res.status(404).json({ success: false, message: "Product not found" });
-        }
-
-        // Get the product's category and subcategory information
-        const [category, subcategory] = await Promise.all([
-            Category.findById(product.categoryId),
-            Subcategory.findById(product.subcategoryId)
-        ]);
-
-        // Fetch product's inventory history
-        const history = await InventoryHistory.find({ productId })
-            .sort({ timestamp: -1 })
-            .populate('userId', 'name email')
-            .populate('orderId', 'status payment paymentMethod')
-            .limit(100); // Limiting to last 100 entries for performance
-
-        res.json({
-            success: true,
-            product: {
-                _id: product._id,
-                name: product.name,
-                stock: product.stock,
-                image: product.image[0],
-                categoryName: category ? category.name : 'Unknown Category',
-                subcategoryName: subcategory ? subcategory.name : 'Unknown Subcategory',
-                isActive: product.isActive
-            },
-            history
-        });
-    } catch (error) {
-        console.error('Error fetching product inventory history:', error);
-        res.status(500).json({ success: false, message: error.message });
+    // Validate required fields
+    if (!productId || previousStock === undefined || newStock === undefined || !action) {
+        res.status(400);
+        throw new Error("Required fields missing");
     }
-};
+
+    const product = await Product.findById(productId);
+
+    if (!product) {
+        res.status(404);
+        throw new Error("Product not found");
+    }
+
+    const history = await InventoryHistory.create({
+        productId,
+        previousStock,
+        newStock,
+        change: change || (newStock - previousStock),
+        action,
+        previousStatus,
+        newStatus,
+        userId: req.user ? req.user._id : null,
+        orderId,
+        note,
+        timestamp: new Date()
+    });
+
+    if (history) {
+        res.status(201).json(history);
+    } else {
+        res.status(500);
+        throw new Error("Failed to create inventory history");
+    }
+});
+
+// @desc    Get inventory history for a product
+// @route   GET /api/inventory/history/:productId
+// @access  Admin
+export const getProductInventoryHistory = asyncHandler(async (req, res) => {
+    const { productId } = req.params;
+
+    const product = await Product.findById(productId);
+
+    if (!product) {
+        res.status(404);
+        throw new Error("Product not found");
+    }
+
+    const history = await InventoryHistory.find({ productId })
+        .sort({ timestamp: -1 })
+        .populate('userId', 'name')
+        .populate('orderId', 'orderNumber');
+
+    if (history) {
+        res.status(200).json(history);
+    } else {
+        res.status(500);
+        throw new Error("Failed to fetch inventory history");
+    }
+});
+
+// @desc    Get all inventory history with pagination
+// @route   GET /api/inventory/history
+// @access  Admin
+export const getAllInventoryHistory = asyncHandler(async (req, res) => {
+    const pageSize = 10;
+    const page = Number(req.query.page) || 1;
+
+    const count = await InventoryHistory.countDocuments();
+
+    const history = await InventoryHistory.find({})
+        .sort({ timestamp: -1 })
+        .limit(pageSize)
+        .skip(pageSize * (page - 1))
+        .populate('productId', 'name image')
+        .populate('userId', 'name')
+        .populate('orderId', 'orderNumber');
+
+    res.status(200).json({
+        history,
+        page,
+        pages: Math.ceil(count / pageSize),
+        total: count
+    });
+});
 
 // Get all inventory history with filtering options
-export const getAllInventoryHistory = async (req, res) => {
+export const getAllInventoryHistoryFiltered = async (req, res) => {
     try {
         const {
             productId,
@@ -142,7 +199,6 @@ export const getAllInventoryHistory = async (req, res) => {
             pagination: {
                 total,
                 page: parseInt(page),
-                limit: parseInt(limit),
                 pages: Math.ceil(total / limit)
             }
         });
@@ -152,116 +208,114 @@ export const getAllInventoryHistory = async (req, res) => {
     }
 };
 
-// Export inventory history to CSV
+// Export inventory history as CSV
 export const exportInventoryHistory = async (req, res) => {
     try {
-        const {
-            productId,
-            action,
-            startDate,
-            endDate
-        } = req.query;
-
-        // Build filter object
-        const filter = {};
-
-        if (productId && mongoose.Types.ObjectId.isValid(productId)) {
-            filter.productId = productId;
-        }
-
-        if (action) {
-            filter.action = action;
-        }
-
-        // Date range filter
-        if (startDate || endDate) {
-            filter.timestamp = {};
-            if (startDate) filter.timestamp.$gte = new Date(startDate);
-            if (endDate) filter.timestamp.$lte = new Date(endDate);
-        }
-
-        // Fetch history data with populated fields
-        const history = await InventoryHistory.find(filter)
+        const inventoryHistory = await InventoryHistory.find({})
             .sort({ timestamp: -1 })
-            .limit(5000) // Limiting export to 5000 records
             .populate('productId', 'name')
             .populate('userId', 'name email')
-            .populate('orderId');
+            .populate('orderId', 'orderNumber');
+
+        if (!inventoryHistory || inventoryHistory.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'No inventory history found'
+            });
+        }
+
+        // Create CSV header
+        const csvHeader = [
+            'Date',
+            'Product',
+            'Action',
+            'Previous Stock',
+            'New Stock',
+            'Change',
+            'User',
+            'Order ID',
+            'Note'
+        ].join(',');
 
         // Format data for CSV
-        const csvData = history.map(record => {
+        const csvRows = inventoryHistory.map(record => {
+            const date = new Date(record.timestamp).toLocaleString();
             const productName = record.productId ? record.productId.name : 'Unknown Product';
-            const username = record.userId ? record.userId.name : 'System';
-            const orderNumber = record.orderId ? record.orderId._id : 'N/A';
+            const userName = record.userId ? record.userId.name : 'System';
+            const orderNumber = record.orderId ? record.orderId.orderNumber : '';
 
-            return {
-                date: new Date(record.timestamp).toISOString(),
-                product: productName,
-                action: record.action,
-                previousStock: record.previousStock,
-                newStock: record.newStock,
-                change: record.change > 0 ? `+${record.change}` : record.change,
-                user: username,
-                orderId: orderNumber,
-                note: record.note
-            };
+            // Escape any commas in the text fields
+            const note = record.note ? `"${record.note.replace(/"/g, '""')}"` : '';
+
+            return [
+                date,
+                `"${productName}"`,
+                record.action,
+                record.previousStock,
+                record.newStock,
+                record.change,
+                `"${userName}"`,
+                orderNumber,
+                note
+            ].join(',');
         });
 
-        // Set headers for CSV download
+        // Combine header and rows
+        const csvContent = [csvHeader, ...csvRows].join('\n');
+
+        // Set headers for file download
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename=inventory_history_${new Date().toISOString().split('T')[0]}.csv`);
 
-        // Write CSV header
-        res.write(Object.keys(csvData[0]).join(',') + '\n');
-
-        // Write CSV data rows
-        csvData.forEach(row => {
-            const values = Object.values(row).map(value => {
-                // Handle values with commas by wrapping in quotes
-                if (typeof value === 'string' && value.includes(',')) {
-                    return `"${value}"`;
-                }
-                return value;
-            });
-            res.write(values.join(',') + '\n');
-        });
-
-        res.end();
+        // Send CSV response
+        res.send(csvContent);
     } catch (error) {
         console.error('Error exporting inventory history:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// Get inventory statistics for dashboard
+// Get inventory statistics for admin dashboard
 export const getInventoryStats = async (req, res) => {
     try {
-        // Get count of products by stock status
-        const [lowStockCount, outOfStockCount, recentChanges] = await Promise.all([
-            // Low stock products (1-10 items)
-            productModel.countDocuments({ stock: { $gt: 0, $lte: 10 } }),
+        // Calculate total products
+        const totalProducts = await productModel.countDocuments();
 
-            // Out of stock products
-            productModel.countDocuments({ stock: 0 }),
+        // Calculate out of stock products
+        const outOfStock = await productModel.countDocuments({ stock: 0 });
 
-            // Recent inventory changes
-            InventoryHistory.find()
-                .sort({ timestamp: -1 })
-                .limit(10)
-                .populate('productId', 'name image')
-                .populate('userId', 'name')
-        ]);
+        // Calculate low stock products (5 or fewer)
+        const lowStock = await productModel.countDocuments({
+            stock: { $gt: 0, $lte: 5 }
+        });
 
-        // Calculate in-stock count
-        const inStockCount = await productModel.countDocuments({ stock: { $gt: 10 } });
+        // Calculate in stock products
+        const inStock = await productModel.countDocuments({
+            stock: { $gt: 5 }
+        });
+
+        // Get recent inventory activities
+        const recentActivities = await InventoryHistory.find({})
+            .sort({ timestamp: -1 })
+            .limit(5)
+            .populate('productId', 'name')
+            .populate('userId', 'name');
 
         res.json({
             success: true,
             stats: {
-                inStock: inStockCount,
-                lowStock: lowStockCount,
-                outOfStock: outOfStockCount,
-                recentChanges
+                totalProducts,
+                outOfStock,
+                lowStock,
+                inStock,
+                recentActivities: recentActivities.map(activity => ({
+                    _id: activity._id,
+                    date: activity.timestamp,
+                    product: activity.productId ? activity.productId.name : 'Unknown Product',
+                    action: activity.action,
+                    change: activity.change,
+                    user: activity.userId ? activity.userId.name : 'System'
+                }))
             }
         });
     } catch (error) {
@@ -270,172 +324,125 @@ export const getInventoryStats = async (req, res) => {
     }
 };
 
-// Export inventory to Excel
+// Export inventory as Excel file
 export const exportInventoryExcel = async (req, res) => {
     try {
-        // Get all products
-        const products = await productModel.find({}).lean();
+        // Get all products with their categories
+        const products = await productModel.find({})
+            .populate('categoryId', 'name')
+            .sort({ name: 1 });
 
-        // Get categories and subcategories
-        const categories = await Category.find({}).lean();
-        const subcategories = await Subcategory.find({}).lean();
+        if (!products || products.length === 0) {
+            return res.status(404).json({ success: false, message: 'No products found' });
+        }
 
-        // Create a map for faster category lookup
-        const categoryMap = categories.reduce((map, cat) => {
-            map[cat._id.toString()] = cat.name;
-            return map;
-        }, {});
+        // Get xl from the excel4node module
+        const xl = require('excel4node');
 
-        // Create a map for faster subcategory lookup
-        const subcategoryMap = subcategories.reduce((map, subcat) => {
-            map[subcat._id.toString()] = subcat.name;
-            return map;
-        }, {});
+        // Create a new instance of a Workbook class
+        const workbook = new xl.Workbook();
 
-        // Format products for Excel
-        const productData = products.map(product => ({
-            id: product._id.toString(),
-            name: product.name,
-            category: categoryMap[product.categoryId?.toString()] || 'Unknown',
-            subcategory: subcategoryMap[product.subcategoryId?.toString()] || 'Unknown',
-            price: product.price,
-            stock: product.stock || 0,
-            status: product.isActive ? 'Active' : 'Inactive',
-            createdAt: product.createdAt ? new Date(product.createdAt).toISOString() : '',
-            updatedAt: product.updatedAt ? new Date(product.updatedAt).toISOString() : ''
-        }));
+        // Add a worksheet
+        const worksheet = workbook.addWorksheet('Inventory');
 
-        // Prepare Excel data
-        let excelData;
-
-        // Import excel4node if needed
-        try {
-            const xl = require('excel4node');
-
-            // Create workbook and sheet
-            const wb = new xl.Workbook();
-            const ws = wb.addWorksheet('Inventory');
-
-            // Define styles
-            const headerStyle = wb.createStyle({
-                font: {
-                    bold: true,
-                    color: '#ffffff',
-                    size: 12
+        // Create styles
+        const headerStyle = workbook.createStyle({
+            font: {
+                color: '#FFFFFF',
+                size: 12,
+                bold: true
+            },
+            fill: {
+                type: 'pattern',
+                patternType: 'solid',
+                fgColor: '#4472C4'
+            },
+            border: {
+                left: {
+                    style: 'thin',
+                    color: '#000000'
                 },
-                fill: {
-                    type: 'pattern',
-                    patternType: 'solid',
-                    fgColor: '#4472C4'
+                right: {
+                    style: 'thin',
+                    color: '#000000'
                 },
-                border: {
-                    left: {
-                        style: 'thin',
-                        color: '#000000'
-                    },
-                    right: {
-                        style: 'thin',
-                        color: '#000000'
-                    },
-                    top: {
-                        style: 'thin',
-                        color: '#000000'
-                    },
-                    bottom: {
-                        style: 'thin',
-                        color: '#000000'
-                    }
+                top: {
+                    style: 'thin',
+                    color: '#000000'
+                },
+                bottom: {
+                    style: 'thin',
+                    color: '#000000'
                 }
-            });
+            }
+        });
 
-            const bodyStyle = wb.createStyle({
-                border: {
-                    left: {
-                        style: 'thin',
-                        color: '#000000'
-                    },
-                    right: {
-                        style: 'thin',
-                        color: '#000000'
-                    },
-                    top: {
-                        style: 'thin',
-                        color: '#000000'
-                    },
-                    bottom: {
-                        style: 'thin',
-                        color: '#000000'
-                    }
+        const cellStyle = workbook.createStyle({
+            border: {
+                left: {
+                    style: 'thin',
+                    color: '#000000'
+                },
+                right: {
+                    style: 'thin',
+                    color: '#000000'
+                },
+                top: {
+                    style: 'thin',
+                    color: '#000000'
+                },
+                bottom: {
+                    style: 'thin',
+                    color: '#000000'
                 }
-            });
+            }
+        });
 
-            // Define headers
-            const headers = ['ID', 'Product Name', 'Category', 'Subcategory', 'Price', 'Stock', 'Status', 'Created', 'Updated'];
+        const lowStockStyle = workbook.createStyle({
+            font: {
+                color: '#FF0000',
+                bold: true
+            }
+        });
 
-            // Add headers
-            headers.forEach((header, i) => {
-                ws.cell(1, i + 1).string(header).style(headerStyle);
-            });
+        // Set up headers
+        const headers = ['Product ID', 'Product Name', 'Category', 'Price', 'Stock', 'Status'];
+        headers.forEach((header, i) => {
+            worksheet.cell(1, i + 1).string(header).style(headerStyle);
+        });
 
-            // Add data rows
-            productData.forEach((product, i) => {
-                const row = i + 2;
-                ws.cell(row, 1).string(product.id).style(bodyStyle);
-                ws.cell(row, 2).string(product.name).style(bodyStyle);
-                ws.cell(row, 3).string(product.category).style(bodyStyle);
-                ws.cell(row, 4).string(product.subcategory).style(bodyStyle);
-                ws.cell(row, 5).number(product.price).style(bodyStyle);
-                ws.cell(row, 6).number(product.stock).style(bodyStyle);
-                ws.cell(row, 7).string(product.status).style(bodyStyle);
-                ws.cell(row, 8).string(product.createdAt).style(bodyStyle);
-                ws.cell(row, 9).string(product.updatedAt).style(bodyStyle);
-            });
+        // Add product data
+        products.forEach((product, i) => {
+            const rowIndex = i + 2;
 
-            // Write to buffer
-            const buffer = await new Promise((resolve, reject) => {
-                wb.writeToBuffer().then(buffer => {
-                    resolve(buffer);
-                }).catch(err => {
-                    reject(err);
-                });
-            });
+            worksheet.cell(rowIndex, 1).string(product._id.toString()).style(cellStyle);
+            worksheet.cell(rowIndex, 2).string(product.name).style(cellStyle);
+            worksheet.cell(rowIndex, 3).string(product.categoryId ? product.categoryId.name : 'Uncategorized').style(cellStyle);
+            worksheet.cell(rowIndex, 4).number(product.price).style(cellStyle);
 
-            // Set headers for Excel download
+            // Apply different style for low stock
+            const stockCell = worksheet.cell(rowIndex, 5).number(product.stock || 0).style(cellStyle);
+            if ((product.stock || 0) <= 5) {
+                stockCell.style(lowStockStyle);
+            }
+
+            worksheet.cell(rowIndex, 6).string(product.isActive ? 'Active' : 'Inactive').style(cellStyle);
+        });
+
+        // Set column widths
+        worksheet.column(1).setWidth(25);
+        worksheet.column(2).setWidth(40);
+        worksheet.column(3).setWidth(20);
+        worksheet.column(4).setWidth(10);
+        worksheet.column(5).setWidth(10);
+        worksheet.column(6).setWidth(15);
+
+        // Write to buffer and send as response
+        workbook.writeToBuffer().then(buffer => {
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', `attachment; filename=inventory_export_${new Date().toISOString().split('T')[0]}.xlsx`);
-
-            // Send buffer
             res.send(buffer);
-
-        } catch (excelError) {
-            console.error('Excel library not available, falling back to CSV:', excelError);
-
-            // If excel4node is not available, fall back to CSV
-            const headers = ['ID', 'Product Name', 'Category', 'Subcategory', 'Price', 'Stock', 'Status', 'Created', 'Updated'];
-
-            // Format data for CSV
-            const csvData = [
-                headers.join(','),
-                ...productData.map(product => [
-                    product.id,
-                    `"${product.name.replace(/"/g, '""')}"`, // Escape quotes
-                    `"${product.category.replace(/"/g, '""')}"`,
-                    `"${product.subcategory.replace(/"/g, '""')}"`,
-                    product.price,
-                    product.stock,
-                    product.status,
-                    product.createdAt,
-                    product.updatedAt
-                ].join(','))
-            ].join('\n');
-
-            // Set headers for CSV download
-            res.setHeader('Content-Type', 'text/csv');
-            res.setHeader('Content-Disposition', `attachment; filename=inventory_export_${new Date().toISOString().split('T')[0]}.csv`);
-
-            // Send CSV
-            res.send(csvData);
-        }
+        });
     } catch (error) {
         console.error('Error exporting inventory to Excel:', error);
         res.status(500).json({ success: false, message: error.message });

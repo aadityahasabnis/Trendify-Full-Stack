@@ -1,18 +1,18 @@
 import express from 'express';
-import adminAuth from '../middleware/adminAuth.js';
+import { adminAuth } from '../middleware/authMiddleware.js';
 import upload from '../middleware/multer.js';
 import {
+    getAllCategories,
     createCategory,
     updateCategory,
     deleteCategory,
-    getAllCategories,
+    getAllSubcategories,
     createSubcategory,
     updateSubcategory,
     deleteSubcategory,
     getSubcategoriesByCategory,
     getProductsByCategory,
-    getProductsBySubcategory,
-    getAllSubcategories
+    getProductsBySubcategory
 } from '../controllers/categoryController.js';
 
 const router = express.Router();
@@ -24,7 +24,7 @@ router.get('/categories/:categorySlug/:subcategorySlug/products', getProductsByS
 router.get('/categories/:categoryId/subcategories', getSubcategoriesByCategory);
 router.get('/subcategories', getAllSubcategories);
 
-// Admin routes
+// Admin routes - protected
 router.post('/categories', adminAuth, upload.single('image'), createCategory);
 router.put('/categories/:id', adminAuth, upload.single('image'), updateCategory);
 router.delete('/categories/:id', adminAuth, deleteCategory);

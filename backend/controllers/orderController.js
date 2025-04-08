@@ -376,5 +376,44 @@ const updateOrderStatus = async (req, res) => {
     }
 };
 
+// Bulk update order statuses from admin panel
+const bulkUpdateOrderStatus = async (req, res) => {
+    try {
+        const { orderIds, status } = req.body;
 
-export { verifyStripe, placeOrder, placeStripe, placeRazorpay, allOrders, userOrders, updateOrderStatus };
+        console.log("Bulk update request:", orderIds.length, "orders to status:", status);
+
+        // Validate inputs
+        if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+            return res.status(400).json({ success: false, message: "Invalid or missing orderIds" });
+        }
+
+        if (!status) {
+            return res.status(400).json({ success: false, message: "Missing status" });
+        }
+
+        // Perform bulk update
+        const result = await orderModel.updateMany(
+            { _id: { $in: orderIds } },
+            { $set: { status: status } }
+        );
+
+        console.log("Bulk update result:", result);
+
+        if (result.matchedCount === 0) {
+            return res.json({ success: false, message: "No matching orders found" });
+        }
+
+        res.json({
+            success: true,
+            message: `Updated ${result.modifiedCount} of ${orderIds.length} orders to ${status}`,
+            modifiedCount: result.modifiedCount
+        });
+    } catch (error) {
+        console.error("Error in bulk update:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
+export { verifyStripe, placeOrder, placeStripe, placeRazorpay, allOrders, userOrders, updateOrderStatus, bulkUpdateOrderStatus };

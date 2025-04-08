@@ -185,7 +185,7 @@ const updateStock = async (req, res) => {
             { stock: Number(stock) },
             { new: true }
         );
-
+        
         // Log the inventory change
         if (req.logInventoryChange) {
             await req.logInventoryChange({
@@ -196,7 +196,7 @@ const updateStock = async (req, res) => {
                 note: note || 'Manual stock update by admin'
             });
         }
-
+        
         res.json({ success: true, message: "Stock updated successfully", product });
     } catch (error) {
         console.log(error);

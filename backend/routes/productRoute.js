@@ -10,8 +10,8 @@ import {
     getProductDetails
 } from "../controllers/productController.js";
 import upload from "../middleware/multer.js";
-import { isAdmin } from "../middlewares/authMiddleware.js";
-import { logInventoryChangeMiddleware } from "../middlewares/inventoryMiddleware.js";
+import { isAdmin, adminAuth } from "../middleware/authMiddleware.js";
+import { logInventoryChangeMiddleware } from "../middleware/inventoryMiddleware.js";
 
 const productRouter = express.Router();
 
@@ -23,27 +23,27 @@ productRouter.get('/details/:productId', getProductDetails);
 // Admin endpoints
 productRouter.post(
     '/add',
-    isAdmin,
+    adminAuth,
     upload.fields([{ name: 'image1', maxCount: 1 }, { name: 'image2', maxCount: 1 }, { name: 'image3', maxCount: 1 }, { name: 'image4', maxCount: 1 }]),
     addProduct
 );
 
 productRouter.post(
     '/remove',
-    isAdmin,
+    adminAuth,
     removeProduct
 );
 
 productRouter.post(
     '/update-stock',
-    isAdmin,
+    adminAuth,
     logInventoryChangeMiddleware,
     updateStock
 );
 
 productRouter.post(
     '/update-status',
-    isAdmin,
+    adminAuth,
     logInventoryChangeMiddleware,
     updateProductStatus
 );
@@ -51,7 +51,7 @@ productRouter.post(
 // Get orders for a specific product (admin only)
 productRouter.get(
     '/:productId/orders',
-    isAdmin,
+    adminAuth,
     getProductOrders
 );
 

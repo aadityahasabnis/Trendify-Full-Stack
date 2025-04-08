@@ -1,4 +1,3 @@
-
 import userModel from '../models/userModel.js';
 import cartModel from "../models/cartModel.js";
 import jwt from 'jsonwebtoken';
@@ -8,7 +7,7 @@ const addToCart = async (req, res) => {
     try {
         const { productId, size } = req.body;
         const token = req.headers.token;
-        
+
         if (!token) {
             return res.status(401).json({ success: false, message: "No token provided" });
         }
@@ -31,7 +30,7 @@ const addToCart = async (req, res) => {
         cart.items[productId][size] = (cart.items[productId][size] || 0) + 1;
 
         await cart.save();
-        
+
         res.json({ success: true, cartData: cart.items });
     } catch (error) {
         console.error(error);
@@ -40,7 +39,7 @@ const addToCart = async (req, res) => {
 };
 
 // Get cart items
-const getCart = async (req, res) => {
+const getCartItems = async (req, res) => {
     try {
         const token = req.headers.token;
         if (!token) {
@@ -54,7 +53,7 @@ const getCart = async (req, res) => {
         if (!cart) {
             return res.json({ success: true, cartData: {} });
         }
-        
+
         res.json({ success: true, cartData: cart.items });
     } catch (error) {
         console.error(error);
@@ -62,12 +61,12 @@ const getCart = async (req, res) => {
     }
 };
 
-// Update cart
-const updateCart = async (req, res) => {
+// Update cart item quantity
+const updateCartItem = async (req, res) => {
     try {
         const { productId, size, quantity } = req.body;
         const token = req.headers.token;
-        
+
         if (!token) {
             return res.status(401).json({ success: false, message: "No token provided" });
         }
@@ -105,7 +104,7 @@ const removeFromCart = async (req, res) => {
     try {
         const { productId, size } = req.body;
         const token = req.headers.token;
-        
+
         if (!token) {
             return res.status(401).json({ success: false, message: "No token provided" });
         }
@@ -133,4 +132,4 @@ const removeFromCart = async (req, res) => {
     }
 };
 
-export { addToCart, getCart, updateCart, removeFromCart };
+export { addToCart, getCartItems, updateCartItem, removeFromCart };

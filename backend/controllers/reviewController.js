@@ -194,4 +194,29 @@ const getProductReviewStats = async (req, res) => {
     }
 };
 
-export { getProductReviewStats, addReview, getProductReviews, deleteReview, getAllReviews, updateReview };
+// Get reviews by a specific user
+const getUserReviews = async (req, res) => {
+    try {
+        const token = req.headers.token;
+        if (!token) {
+            return res.status(401).json({ success: false, message: "No token provided" });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+
+        const reviews = await reviewModel.find({ userId })
+            .populate('productId', 'name image price')
+            .sort({ date: -1 });
+
+        res.json({
+            success: true,
+            reviews
+        });
+    } catch (error) {
+        console.error("Error fetching user reviews:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch user reviews" });
+    }
+};
+
+export { getProductReviewStats, addReview, getProductReviews, deleteReview, getAllReviews, updateReview, getUserReviews };
