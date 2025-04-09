@@ -19,8 +19,6 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.5.2",
-    "react-image-lightbox": "^5.1.4",
-    "react-image-magnify": "^2.7.4",
     "react-router-dom": "^7.3.0",
     "react-share": "^5.2.2",
     "react-slick": "^0.30.3",
