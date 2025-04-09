@@ -7,7 +7,6 @@ import { jwtDecode } from 'jwt-decode';
 import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart, FaBolt, FaFacebookF, FaTwitter, FaPinterestP } from 'react-icons/fa';
 import { IoMdCheckmark, IoIosArrowBack, IoIosArrowForward } from 'react-icons/io';
 import { Tab } from '@headlessui/react';
-import ReactImageMagnify from 'react-image-magnify';
 import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
