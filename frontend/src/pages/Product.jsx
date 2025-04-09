@@ -146,31 +146,31 @@ const LiveChatWidget = () => (
 );
 
 const Product = () => {
-	const [averageRating, setAverageRating] = useState(0);
-	const [totalReviews, setTotalReviews] = useState(0);
 	const { productId } = useParams();
 	const { products, currency, addToCart, backendUrl, token } = useContext(ShopContext);
 	const [productData, setProductData] = useState(null);
 	const [image, setImage] = useState(null);
 	const [size, setSize] = useState('');
-	const [activeTab, setActiveTab] = useState('description');
 	const [reviews, setReviews] = useState([]);
+	const [averageRating, setAverageRating] = useState('0');
+	const [totalReviews, setTotalReviews] = useState(0);
+	const [selectedColor, setSelectedColor] = useState('');
+	const [quantity, setQuantity] = useState(1);
+	const [isLoading, setIsLoading] = useState(true);
+	const [errorMessage, setErrorMessage] = useState('');
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
 	const [editingReview, setEditingReview] = useState(null);
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [errorMessage, setErrorMessage] = useState('');
-	const [isLoading, setIsLoading] = useState(true);
+	const [showStickyAdd, setShowStickyAdd] = useState(false);
+	const addToCartRef = useRef(null);
 
 	// New state variables
-	const [quantity, setQuantity] = useState(1);
 	const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState(0);
-	const [showStickyAdd, setShowStickyAdd] = useState(false);
-	const [selectedColor, setSelectedColor] = useState('');
+	const [activeTab, setActiveTab] = useState('description');
 	const [isZoomed, setIsZoomed] = useState(false);
 
 	// Refs
-	const addToCartRef = useRef(null);
 	const sliderRef = useRef(null);
 
 	// Decode the token to get the user ID
