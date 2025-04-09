@@ -24,7 +24,13 @@ connectCloudinary();
 // Middlewares
 app.use(express.json());
 
-const allowedOrigins = ['http://localhost:5174', 'http://localhost:5173', 'https://trendify-admin-rose.vercel.app', 'https://trendify-frontend-vercel.vercel.app'];
+const allowedOrigins = [
+    'http://localhost:5174',
+    'http://localhost:5173',
+    'https://trendify-admin-rose.vercel.app',
+    'https://trendify-frontend-vercel.vercel.app',
+    'https://trendify-frontend-jrmmlhvbh-aaditya-hasabnis.vercel.app'
+];
 
 const corsOptions = {
     origin: (origin, callback) => {
@@ -34,12 +40,30 @@ const corsOptions = {
             callback(new Error('Not allowed by CORS'));
         }
     },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'token', 'x-requested-with'],
     credentials: true,
-    optionsSuccessStatus: 204
+    optionsSuccessStatus: 204,
+    preflightContinue: false,
+    maxAge: 86400 // 24 hours
 };
 
 app.use(cors(corsOptions));
+
+// Add a middleware to ensure CORS headers are set for all responses
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, token, x-requested-with');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    next();
+});
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions));
 
 // API endpoints
 app.use('/api/user', userRouter);

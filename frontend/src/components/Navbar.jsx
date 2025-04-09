@@ -45,15 +45,21 @@ const Navbar = () => {
 					const pincode = data.address.postcode || "Unknown";
 
 					setUserLocation({ city, pincode });
-					// showLocationToast();
+					showLocationToast();
 				} catch (error) {
 					console.error("Error getting location:", error);
-					// toast.error("Failed to get location details");
+					toast.error("Failed to get location details. Please enter your pincode manually.");
+					setLocationModalOpen(true);
 				}
 			},
 			(error) => {
 				console.error("Error getting location:", error);
-				toast.error("Failed to get your location. Please enable location services.");
+				if (error.code === 1) {
+					toast.info("Location access denied. Please enter your pincode manually.");
+				} else {
+					toast.error("Failed to get your location. Please enter your pincode manually.");
+				}
+				setLocationModalOpen(true);
 			}
 		);
 	};
