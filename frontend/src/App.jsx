@@ -45,7 +45,7 @@ function App() {
         }}
       />
       <Navbar />
-      <main className="flex-grow pt-16">
+      <main className="flex-grow pt-16 px-4">
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             <Route path="/" element={<HomeLazy />} />
@@ -56,6 +56,7 @@ function App() {
             <Route path="/cart" element={<Cart />} />
             <Route path="/login" element={<LoginLazy />} />
             <Route path="/place-order" element={<PlaceOrder />} />
+            <Route path="/checkout" element={<PlaceOrder />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/verify" element={<Verify />} />
             <Route path="/profile" element={<UserProfileLazy />} />

@@ -624,7 +624,7 @@ const Product = () => {
 					</div>
 
 					{/* Add to Cart and Buy Now Buttons */}
-					<div className="space-y-4" ref={addToCartRef}>
+					<div className="space-y-4 flex flex-row gap-4" ref={addToCartRef}>
 						<button
 							onClick={() => {
 								if (size) {

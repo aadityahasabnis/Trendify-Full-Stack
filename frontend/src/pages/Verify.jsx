@@ -6,37 +6,51 @@ import { toast } from 'react-toastify';
 
 const Verify = () => {
     const { navigate, token, setCartItems, backendUrl } = useContext(ShopContext);
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
 
     const success = searchParams.get('success');
     const orderId = searchParams.get('orderId');
 
-    const verifyPayment = async ()=> {
+    const verifyPayment = async () => {
         try {
-            if(!token) {
+            if (!token) {
                 return null;
             }
-            const response = await axios.post(backendUrl + '/api/order/verifyStripe', {success, orderId}, {headers:{token}})
-            if(response.data.success) {
+
+            const response = await axios.post(
+                backendUrl + '/api/order/verifyStripe',
+                { success, orderId },
+                { headers: { token } }
+            );
+
+            if (response.data.success) {
                 setCartItems({});
-                navigate('/orders')
+                navigate('/orders');
+                toast.success('Payment successful! Your order has been placed.');
             } else {
-                navigate('/cart')
+                navigate('/cart');
+                toast.error('Payment failed or was canceled.');
             }
         } catch (error) {
-            console.log(error)
-            toast.error(error.message)
+            console.error('Error verifying payment:', error);
+            toast.error(error.response?.data?.message || 'Error verifying payment');
+            navigate('/cart');
         }
     }
-    useEffect(()=>{
-        verifyPayment()
-    },[token])
+
+    useEffect(() => {
+        verifyPayment();
+    }, [token]);
+
     return (
-
-        <div>
-
+        <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center">
+                <h2 className="text-2xl font-semibold mb-4">Verifying Payment</h2>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-4 text-gray-600">Please wait while we process your payment...</p>
+            </div>
         </div>
-    )
+    );
 }
 
-export default Verify
+export default Verify;

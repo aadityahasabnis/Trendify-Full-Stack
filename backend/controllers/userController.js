@@ -31,6 +31,24 @@ const loginUser = async (req, res) => {
 
         if (isMatch) {
             const token = createToken(user._id);
+
+            // Check if user has a cart in the cartModel
+            let cart = await cartModel.findOne({ userId: user._id });
+
+            // If cart doesn't exist but user has cartData, create a new cart
+            if (!cart && user.cartData && Object.keys(user.cartData).length > 0) {
+                cart = new cartModel({ userId: user._id, items: user.cartData });
+                await cart.save();
+                console.log('Created new cart from user.cartData during login:', user.cartData);
+            }
+
+            // If cart exists but user's cartData is empty, update user's cartData
+            if (cart && (!user.cartData || Object.keys(user.cartData).length === 0)) {
+                user.cartData = cart.items;
+                await user.save();
+                console.log('Updated user.cartData from cart during login:', cart.items);
+            }
+
             res.json({ success: true, token });
         } else {
             res.json({ success: false, message: "Invalid credentials." });
@@ -43,6 +61,7 @@ const loginUser = async (req, res) => {
         });
     }
 };
+
 // Route for user Register
 const registerUser = async (req, res) => {
     try {
@@ -82,8 +101,18 @@ const registerUser = async (req, res) => {
             name,
             email,
             password: hashedPassword,
+            cartData: {} // Initialize empty cart data
         });
         const user = await newUser.save();
+        console.log('Created new user with empty cartData');
+
+        // Create an empty cart for the user
+        const newCart = new cartModel({
+            userId: user._id,
+            items: {}
+        });
+        await newCart.save();
+        console.log('Created empty cart for new user');
 
         // Token creation
         const token = createToken(user._id);

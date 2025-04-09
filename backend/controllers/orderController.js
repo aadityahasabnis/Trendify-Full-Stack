@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import { decreaseStock } from "./productController.js";
 import productModel from "../models/productModel.js";
 import mongoose from 'mongoose';
+import cartModel from "../models/cartModel.js";
 
 
 // Global variables
@@ -56,87 +57,26 @@ const placeOrder = async (req, res) => {
         const stockUpdateResult = await decreaseStock(items, newOrder._id);
 
         if (!stockUpdateResult.success) {
-            // If stock update fails, delete the order and return error
-            await orderModel.findByIdAndDelete(newOrder._id);
-            return res.status(400).json({
-                success: false,
-                message: stockUpdateResult.message || 'Failed to update product stock'
-            });
+            console.error('Failed to update stock for order:', stockUpdateResult.message);
+            // Continue anyway since order was created
         }
 
+        // Clear user's cart in userModel
         await userModel.findByIdAndUpdate(userId, { cartData: {} });
+        console.log('Cleared user.cartData after COD order placement');
 
-        // Find user email
-        const user = await userModel.findById(userId);
-        // Send order confirmation email
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: process.env.EMAIL_USERNAME,
-                pass: process.env.EMAIL_PASSWORD,
-            },
-            tls: {
-                rejectUnauthorized: false,
-            },
-            secure: false,
-        });
+        // Also clear the cart in cartModel
+        const cart = await cartModel.findOne({ userId });
+        if (cart) {
+            cart.items = {};
+            await cart.save();
+            console.log('Cleared cart data after COD order placement');
+        }
 
-        const mailOptions = {
-            from: process.env.EMAIL_USERNAME,
-            to: user.email,
-            subject: "🧾 Order Confirmation - Trendify",
-            html: `
-                <div style="max-width:600px;margin:0 auto;padding:20px;background-color:#f4f4f4;font-family:Arial,sans-serif;">
-                    <div style="background:#ffffff;padding:30px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.05);color:#333;">
-                        <h1 style="color:#6c63ff;font-size:24px;text-align:center;">🛍️ Thank you for your order!</h1>
-        
-                        <p style="font-size:16px;line-height:1.6;text-align:center;">
-                            Your order has been placed successfully and will be delivered within <strong>3 days</strong>. 🚚
-                        </p>
-        
-                        <h2 style="font-size:18px;color:#6c63ff;margin-top:30px;">🧾 Order Summary:</h2>
-                        <div style="font-size:15px;line-height:1.6;background-color:#f9f9f9;padding:15px;border-radius:6px;">
-                            ${items.map(item => `
-                                <div style="margin-bottom:10px;">
-                                    <strong>${item.name}</strong><br/>
-                                    Quantity: ${item.quantity}<br/>
-                                    Price: ₹${item.price}
-                                </div>
-                            `).join('')}
-                            <hr style="border: none; border-top: 1px solid #ddd;" />
-                            <strong>Total: ₹${amount}</strong>
-                        </div>
-        
-                        <div style="text-align:center;margin:30px 0;">
-                            <a href="https://trendify-frontend-vercel.vercel.app/orders" 
-                               style="display:inline-block;padding:12px 24px;background-color:#6c63ff;color:#fff;
-                                      border-radius:6px;text-decoration:none;font-weight:bold;font-size:16px;">
-                                📦 Track Your Order
-                            </a>
-                        </div>
-        
-                        <p style="font-size:14px;color:#555;text-align:center;">
-                            Got questions? Reach out to us at 
-                            <a href="mailto:support@trendify.com" style="color:#6c63ff;">support@trendify.com</a>
-                        </p>
-        
-                        <hr style="margin:30px 0;border:none;border-top:1px solid #eee;" />
-        
-                        <p style="font-size:13px;color:#999;text-align:center;">
-                            Thank you for shopping with Trendify ❤️
-                        </p>
-                    </div>
-                </div>
-            `,
-        };
-
-        await transporter.sendMail(mailOptions);
-
-
-        res.status(200).json({ success: true, message: 'Order placed successfully', orderId: newOrder._id });
+        res.json({ success: true, orderId: newOrder._id });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'Server error' });
+        console.error("Error placing order:", error);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -257,42 +197,64 @@ const checkStockAvailability = async (orderedItems) => {
 
 // Verify Stripe
 const verifyStripe = async (req, res) => {
-    const { orderId, success, userId } = req.body;
     try {
-        if (success === 'true') {
-            // Get the order details
-            const order = await orderModel.findById(orderId);
-            if (!order) {
-                return res.json({ success: false, message: 'Order not found' });
-            }
+        const { success, orderId } = req.body;
+        const token = req.headers.token;
 
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'No token provided' });
+        }
+
+        if (!success || !orderId) {
+            return res.status(400).json({ success: false, message: 'Invalid request parameters' });
+        }
+
+        // Extract userId from token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+
+        const order = await orderModel.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        if (success) {
             // Update order payment status
             order.payment = true;
+            order.timeline.push({
+                text: 'Payment Successful',
+                type: 'event',
+                timestamp: new Date()
+            });
             await order.save();
 
-            // Now decrease stock since payment was successful
-            console.log('Payment successful, decreasing stock for items:', order.items);
-            const stockUpdateResult = await decreaseStock(order.items, orderId);
+            // Decrease stock for items
+            await decreaseStock(order.items, orderId);
 
-            if (!stockUpdateResult.success) {
-                console.error('Failed to update stock after payment:', stockUpdateResult.message);
-                // Continue anyway since payment was successful
+            // Clear cart data
+            // Clear user's cart in userModel
+            await userModel.findByIdAndUpdate(userId, { cartData: {} });
+            console.log('Cleared user.cartData after successful Stripe payment');
+
+            // Clear cart in cartModel
+            const cart = await cartModel.findOne({ userId });
+            if (cart) {
+                cart.items = {};
+                await cart.save();
+                console.log('Cleared cart data after successful Stripe payment');
             }
 
-            // Clear user's cart
-            await userModel.findByIdAndUpdate(userId, { cartData: {} });
-
-            res.json({ success: true });
+            res.json({ success: true, message: 'Payment verified successfully' });
         } else {
-            // Payment failed, delete the order
+            // Delete the order if payment failed
             await orderModel.findByIdAndDelete(orderId);
-            res.json({ success: false, message: 'Payment failed or canceled' });
+            res.status(400).json({ success: false, message: 'Payment verification failed' });
         }
     } catch (error) {
         console.error('Error verifying Stripe payment:', error);
-        res.json({ success: false, message: error.message || 'Error processing payment verification' });
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 // Placing orders using COD method
 const placeRazorpay = async (req, res) => {
