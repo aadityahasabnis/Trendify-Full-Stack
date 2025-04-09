@@ -1,6 +1,7 @@
 import newsletterModel from '../models/newsletterModel.js';
 import nodemailer from 'nodemailer';
 import jwt from 'jsonwebtoken';
+import userModel from '../models/userModel.js'; // Import userModel if needed
 
 // Subscribe to newsletter
 const subscribe = async (req, res) => {
@@ -239,4 +240,43 @@ const getAllSubscribers = async (req, res) => {
     }
 };
 
-export { subscribe, unsubscribe, sendNewsletter, getAllSubscribers }; 
+// --- Admin: Manage User Subscription ---
+const adminManageSubscription = async (req, res) => {
+    try {
+        const { email, subscribe } = req.body; // Expect email and a boolean 'subscribe' flag
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: "Email is required." });
+        }
+
+        const subscription = await newsletterModel.findOne({ email });
+
+        if (subscribe) { // Add or Resubscribe
+            if (subscription) {
+                subscription.isSubscribed = true;
+                await subscription.save();
+                res.json({ success: true, message: "User resubscribed successfully." });
+            } else {
+                // Optionally find user ID if email exists in userModel
+                const user = await userModel.findOne({ email });
+                await newsletterModel.create({ email, userId: user ? user._id : null, isSubscribed: true });
+                res.json({ success: true, message: "User subscribed successfully." });
+                // TODO: Consider sending welcome email? Might be unexpected from admin action.
+            }
+        } else { // Unsubscribe
+            if (subscription) {
+                subscription.isSubscribed = false;
+                await subscription.save();
+                res.json({ success: true, message: "User unsubscribed successfully." });
+            } else {
+                res.status(404).json({ success: false, message: "Subscription not found for this email." });
+            }
+        }
+    } catch (error) {
+        console.error("Admin manage subscription error:", error);
+        res.status(500).json({ success: false, message: "Failed to manage subscription." });
+    }
+};
+
+// --- Update Exports ---
+export { subscribe, unsubscribe, sendNewsletter, getAllSubscribers, adminManageSubscription }; // <-- Add adminManageSubscription 

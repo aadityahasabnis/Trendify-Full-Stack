@@ -92,6 +92,17 @@ const Sidebar = () => {
           <i className="material-icons text-gray-600" style={{ fontSize: '20px' }}>email</i>
           <p className='hidden md:block'>Newsletter</p>
         </NavLink>
+
+        <NavLink
+          className={({ isActive }) =>
+            `flex items-center gap-3 border border-gray-300 border-r-0 px-3 py-2 rounded-l transition-colors ${isActive ? 'bg-orange-100 border-orange-500' : 'hover:bg-gray-50'
+            }`
+          }
+          to='/users'
+        >
+          <i className="material-icons text-gray-600" style={{ fontSize: '20px' }}>group</i>
+          <p className='hidden md:block'>All Users</p>
+        </NavLink>
       </div>
     </div>
   )

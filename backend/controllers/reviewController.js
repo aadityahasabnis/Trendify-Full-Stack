@@ -57,13 +57,20 @@ const getProductReviews = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid product ID" });
         }
 
-        const reviews = await reviewModel.find({ productId })
-            .populate('userId', 'name email')
+        const reviewsRaw = await reviewModel.find({ productId })
+            // Populate user but select name AND isBlocked status
+            .populate({ path: 'userId', select: 'name isBlocked' })
             .sort({ date: -1 });
+
+        // Filter out reviews from blocked users *after* fetching
+        const reviews = reviewsRaw.filter(review => {
+            // Keep review if user doesn't exist (e.g., deleted user) or if user exists and is NOT blocked
+            return !review.userId || !review.userId.isBlocked;
+        });
 
         res.json({
             success: true,
-            reviews
+            reviews // Return the filtered list
         });
     } catch (error) {
         console.error("Error fetching product reviews:", error);

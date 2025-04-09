@@ -28,6 +28,37 @@ const orderItemSchema = new mongoose.Schema({
     }
 });
 
+// --- Rename to timelineEventSchema and add type ---
+const timelineEventSchema = new mongoose.Schema({
+    text: { // Can store note text OR status change description
+        type: String,
+        required: true
+    },
+    type: { // Differentiate event types
+        type: String,
+        required: true,
+        enum: ['note', 'status_change', 'event'], // Types of timeline entries
+        default: 'note'
+    },
+    // Store previous/new status specifically for status_change events
+    previousStatus: {
+        type: String,
+        default: null
+    },
+    newStatus: {
+        type: String,
+        default: null
+    },
+    addedBy: {
+        type: String, // Could be ObjectId ref:'Admin' if you have an Admin model
+        default: 'System' // Default to 'System' for automatic events
+    },
+    timestamp: {
+        type: Date,
+        default: Date.now
+    }
+}, { _id: false }); // Don't create separate IDs for timeline events
+
 const orderSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -61,7 +92,8 @@ const orderSchema = new mongoose.Schema({
     date: {
         type: Number,
         required: true
-    }
+    },
+    timeline: [timelineEventSchema] // <-- Rename 'notes' to 'timeline' and use new schema
 }, {
     timestamps: true,
     toJSON: { virtuals: true },

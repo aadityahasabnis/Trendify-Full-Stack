@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+// Category Schema
 const categorySchema = new mongoose.Schema({
     name: {
         type: String,
@@ -31,13 +32,15 @@ const categorySchema = new mongoose.Schema({
     toObject: { virtuals: true }
 });
 
-// Add virtual field for subcategories
+// 🔥 Virtual: Subcategories in Category
 categorySchema.virtual('subcategories', {
     ref: 'Subcategory',
     localField: '_id',
     foreignField: 'categoryId'
 });
 
+
+// Subcategory Schema
 const subcategorySchema = new mongoose.Schema({
     name: {
         type: String,
@@ -66,12 +69,25 @@ const subcategorySchema = new mongoose.Schema({
         type: Boolean,
         default: true
     }
-}, { timestamps: true });
+}, {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+});
 
-// Create compound index for subcategory slug and categoryId
+// Compound index
 subcategorySchema.index({ slug: 1, categoryId: 1 }, { unique: true });
 
+// ✅ Optional: Virtual for populated Category in Subcategory
+subcategorySchema.virtual('category', {
+    ref: 'Category',
+    localField: 'categoryId',
+    foreignField: '_id',
+    justOne: true
+});
+
+// Model Exports
 const Category = mongoose.models.Category || mongoose.model("Category", categorySchema);
 const Subcategory = mongoose.models.Subcategory || mongoose.model("Subcategory", subcategorySchema);
 
-export { Category, Subcategory }; 
+export { Category, Subcategory };

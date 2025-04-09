@@ -14,7 +14,9 @@ const connectDB = async () => {
             console.log('MongoDB Disconnected');
         });
 
-        await mongoose.connect(`${process.env.MONGODB_URL}/trendify`);
+        const dbUri = `${process.env.MONGODB_URL}/trendify`;
+        console.log("Attempting to connect to MongoDB at:", dbUri);
+        await mongoose.connect(dbUri);
     } catch (error) {
         console.error('Error connecting to MongoDB:', error);
         process.exit(1);

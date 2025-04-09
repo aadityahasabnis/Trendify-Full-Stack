@@ -6,18 +6,34 @@ import OurPolicy from "../components/OurPolicy";
 import NewsletterBox from "../components/NewsletterBox";
 import PersonalizedRecommendations from "../components/PersonalizedRecommendations";
 import SecondaryNav from "../components/SecondaryNav";
+import CategoriesGrid from "../components/CategoriesGrid";
 import { assets } from "../assets/frontend_assets/assets";
 
 const Home = () => {
     return (
-        <div>
-            {/* Ensure assets.secondaryNavItems exists before passing */}
+        <div className="min-h-screen">
+            {/* Secondary Navigation */}
             <SecondaryNav items={assets.secondaryNavItems} />
+
+            {/* Hero Section with Slideshow */}
             <Hero />
+
+            {/* Categories Grid */}
+            <CategoriesGrid />
+
+            {/* Latest Collection with Carousel */}
             <LatestCollection />
+
+            {/* Best Sellers with Carousel */}
             <BestSeller />
+
+            {/* Personalized Recommendations */}
             <PersonalizedRecommendations />
+
+            {/* Our Policy Section */}
             <OurPolicy />
+
+            {/* Newsletter Subscription */}
             <NewsletterBox />
         </div>
     );

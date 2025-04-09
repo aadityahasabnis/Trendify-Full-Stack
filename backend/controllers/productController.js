@@ -185,7 +185,7 @@ const updateStock = async (req, res) => {
             { stock: Number(stock) },
             { new: true }
         );
-        
+
         // Log the inventory change
         if (req.logInventoryChange) {
             await req.logInventoryChange({
@@ -196,7 +196,7 @@ const updateStock = async (req, res) => {
                 note: note || 'Manual stock update by admin'
             });
         }
-        
+
         res.json({ success: true, message: "Stock updated successfully", product });
     } catch (error) {
         console.log(error);
@@ -412,6 +412,84 @@ const decreaseStock = async (orderedItems, orderId = null) => {
             success: false,
             message: error.message || 'Failed to update stock'
         };
+    }
+};
+
+export const getBestsellers = async (req, res) => {
+    try {
+        const { departmentId } = req.params;
+        const query = departmentId ? { bestseller: true, categoryId: departmentId } : { bestseller: true };
+        const products = await productModel.find(query).sort({ sales: -1 });
+        res.json({ success: true, products });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getNewReleases = async (req, res) => {
+    try {
+        const { departmentId } = req.params;
+        const { timeFilter } = req.query;
+
+        let dateFilter;
+        switch (timeFilter) {
+            case 'last30days':
+                dateFilter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+                break;
+            case 'last90days':
+                dateFilter = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+                break;
+            case 'comingSoon':
+                dateFilter = new Date();
+                break;
+            default:
+                dateFilter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        }
+
+        const query = {
+            createdAt: { $gte: dateFilter },
+            ...(departmentId && { categoryId: departmentId })
+        };
+
+        const products = await productModel.find(query).sort({ createdAt: -1 });
+        res.json({ success: true, products });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getTrendingProducts = async (req, res) => {
+    try {
+        const { departmentId } = req.params;
+        const { timeRange } = req.query;
+
+        let dateFilter;
+        switch (timeRange) {
+            case '24hours':
+                dateFilter = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                break;
+            case '48hours':
+                dateFilter = new Date(Date.now() - 48 * 60 * 60 * 1000);
+                break;
+            case '7days':
+                dateFilter = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                break;
+            default:
+                dateFilter = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        }
+
+        const query = {
+            updatedAt: { $gte: dateFilter },
+            ...(departmentId && { categoryId: departmentId })
+        };
+
+        const products = await productModel.find(query)
+            .sort({ salesRankChange: -1 })
+            .limit(100);
+
+        res.json({ success: true, products });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 

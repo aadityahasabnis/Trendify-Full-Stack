@@ -45,10 +45,10 @@ const Navbar = () => {
 					const pincode = data.address.postcode || "Unknown";
 
 					setUserLocation({ city, pincode });
-					showLocationToast();
+					// showLocationToast();
 				} catch (error) {
 					console.error("Error getting location:", error);
-					toast.error("Failed to get location details");
+					// toast.error("Failed to get location details");
 				}
 			},
 			(error) => {
@@ -127,9 +127,9 @@ const Navbar = () => {
 			{/* Logo */}
 			<div className="flex items-center">
 				<img
-					onClick={() => token ? null : navigate('/login')}
+					onClick={() => navigate('/')}
 					src={assets.logo || "/fallback-logo.png"}
-					className="h-8 w-auto min-w-[120px] max-w-[140px] object-contain"
+					className="h-8 w-auto min-w-[120px] max-w-[140px] object-contain cursor-pointer"
 					alt="Logo"
 				/>
 			</div>
@@ -251,47 +251,74 @@ const Navbar = () => {
 			{/* Location Modal */}
 			{locationModalOpen && (
 				<>
-					{/* Background Overlay */}
+
 					<div
-						className="fixed inset-0 bg-black opacity-50 z-[60] transition-opacity"
+						className="fixed inset-0 backdrop-blur-sm z-[60] transition-opacity"
 						onClick={(e) => {
 							if (e.target === e.currentTarget) setLocationModalOpen(false);
 						}}
 					></div>
 
+
 					{/* Modal Box */}
 					<div className="fixed inset-0 flex items-center justify-center z-[70] px-4">
-						<div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
+						<div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md relative transform transition-all">
 							<button
-								className="text-3xl absolute top-2 right-4 text-gray-500 hover:text-gray-800 hover:rotate-90 transition"
+								className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
 								onClick={() => setLocationModalOpen(false)}
 							>
-								&times;
+								<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+								</svg>
 							</button>
-							<h2 className="text-lg font-semibold mb-4">Choose your location</h2>
-							<p className="text-sm text-gray-600 mb-4">
-								Select a delivery location to see product availability and delivery options.
-							</p>
-							<button
-								onClick={handleLocationUpdate}
-								className="w-full bg-yellow-300 active:bg-yellow-400 text-black py-2 rounded-full font-semibold mb-3 hover:bg-yellow-400 transition-colors"
-							>
-								Use my current location
-							</button>
-							<input
-								type="text"
-								value={inputPincode}
-								onChange={(e) => setInputPincode(e.target.value.slice(0, 6))}
-								placeholder="Enter an Indian pincode"
-								className="w-full p-2 border border-gray-300 rounded-md mb-3 focus:border-orange-500 focus:outline-none"
-								maxLength={6}
-							/>
-							<button
-								onClick={handlePincodeSubmit}
-								className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md transition-colors"
-							>
-								Apply
-							</button>
+
+							<div className="text-center mb-6">
+								<h2 className="text-2xl font-bold text-gray-800 mb-2">Choose your location</h2>
+								<p className="text-sm text-gray-600">
+									Select a delivery location to see product availability and delivery options.
+								</p>
+							</div>
+
+							<div className="space-y-4">
+								<button
+									onClick={handleLocationUpdate}
+									className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+									</svg>
+									Use my current location
+								</button>
+
+								<div className="relative">
+									<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+										</svg>
+									</div>
+									<input
+										type="text"
+										value={inputPincode}
+										onChange={(e) => setInputPincode(e.target.value.slice(0, 6))}
+										placeholder="Enter an Indian pincode"
+										className="w-full pl-10 p-3 border border-gray-300 rounded-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all"
+										maxLength={6}
+									/>
+								</div>
+
+								<button
+									onClick={handlePincodeSubmit}
+									className="w-full bg-gray-800 hover:bg-gray-900 text-white py-3 rounded-lg font-medium transition-colors"
+								>
+									Apply
+								</button>
+							</div>
+
+							<div className="mt-6 text-center text-xs text-gray-500">
+								<p>Your location helps us show you relevant products and delivery options.</p>
+							</div>
 						</div>
 					</div>
 				</>

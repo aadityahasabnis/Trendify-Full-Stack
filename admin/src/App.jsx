@@ -11,6 +11,7 @@ import Login from '../components/Login';
 import Newsletter from './../pages/Newsletter';
 import Categories from './../pages/Categories';
 import Subcategories from './../pages/Subcategories';
+import Users from '../pages/Users';
 import { ToastContainer } from 'react-toastify';
 
 export const backendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -45,6 +46,7 @@ const App = () => {
 								<Route path="/newsletter" element={<Newsletter token={token} />} />
 								<Route path="/categories" element={<Categories token={token} />} />
 								<Route path="/subcategories" element={<Subcategories token={token} />} />
+								<Route path='/users' element={<Users token={token} />} />
 							</Routes>
 						</div>
 					</div>

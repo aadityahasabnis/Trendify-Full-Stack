@@ -1,20 +1,49 @@
 import React, { useState, useRef, useEffect, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ShopContext } from "../context/ShopContext";
+import axios from 'axios';
 
 const AllSidebar = ({ isOpen, onClose }) => {
     const firstFocusableElement = useRef(null);
     const [currentSection, setCurrentSection] = useState("main");
-    const { token, setToken, setCartItems } = useContext(ShopContext);
+    const { token, setToken, setCartItems, backendUrl } = useContext(ShopContext);
     const [userData, setUserData] = useState(null);
     const navigate = useNavigate();
     const [showProfileInfo, setShowProfileInfo] = useState(false);
+    const [categories, setCategories] = useState([]);
+    const [subcategories, setSubcategories] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    // Fetch categories and subcategories
+    useEffect(() => {
+        const fetchCategoriesAndSubcategories = async () => {
+            try {
+                const [categoriesRes, subcategoriesRes] = await Promise.all([
+                    axios.get(`${backendUrl}/api/categories`),
+                    axios.get(`${backendUrl}/api/subcategories`)
+                ]);
+
+                if (categoriesRes.data.success) {
+                    setCategories(categoriesRes.data.categories);
+                }
+                if (subcategoriesRes.data.success) {
+                    setSubcategories(subcategoriesRes.data.subcategories);
+                }
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCategoriesAndSubcategories();
+    }, [backendUrl]);
 
     // Fetch user data if logged in
     useEffect(() => {
         const fetchUserData = async () => {
             try {
-                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/user/profile`, {
+                const response = await fetch(`${backendUrl}/api/user/profile`, {
                     headers: { token }
                 });
                 const data = await response.json();
@@ -29,7 +58,7 @@ const AllSidebar = ({ isOpen, onClose }) => {
         if (token) {
             fetchUserData();
         }
-    }, [token]);
+    }, [token, backendUrl]);
 
     const logout = () => {
         setToken('');
@@ -99,43 +128,23 @@ const AllSidebar = ({ isOpen, onClose }) => {
             <div className="p-4 flex-1">
                 <h3 className="text-lg font-semibold mb-3 text-gray-800">Shop by Category</h3>
                 <div className="space-y-2">
-                    <button
-                        onClick={() => setCurrentSection("mobiles")}
-                        className="flex items-center w-full p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-                    >
-                        <span className="material-icons mr-3 text-orange-500">smartphone</span>
-                        <span className="group-hover:text-orange-600 flex-1 text-left">Mobiles</span>
-                        <span className="material-icons text-gray-400">chevron_right</span>
-                    </button>
-                    <button
-                        onClick={() => setCurrentSection("computers")}
-                        className="flex items-center w-full p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-                    >
-                        <span className="material-icons mr-3 text-orange-500">computer</span>
-                        <span className="group-hover:text-orange-600 flex-1 text-left">Computers</span>
-                        <span className="material-icons text-gray-400">chevron_right</span>
-                    </button>
-                    <Link to="/tv"
-                        className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-                        onClick={onClose}
-                    >
-                        <span className="material-icons mr-3 text-orange-500">tv</span>
-                        <span className="group-hover:text-orange-600">TV</span>
-                    </Link>
-                    <Link to="/mens-fashion"
-                        className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-                        onClick={onClose}
-                    >
-                        <span className="material-icons mr-3 text-orange-500">man</span>
-                        <span className="group-hover:text-orange-600">Mens Fashion</span>
-                    </Link>
-                    <Link to="/womens-fashion"
-                        className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-                        onClick={onClose}
-                    >
-                        <span className="material-icons mr-3 text-orange-500">woman</span>
-                        <span className="group-hover:text-orange-600">Womens Fashion</span>
-                    </Link>
+                    {loading ? (
+                        <div className="flex items-center justify-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-orange-500"></div>
+                        </div>
+                    ) : (
+                        categories.map((category) => (
+                            <button
+                                key={category._id}
+                                onClick={() => setCurrentSection(category._id)}
+                                className="flex items-center w-full p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                            >
+                                <span className="material-icons mr-3 text-orange-500">category</span>
+                                <span className="group-hover:text-orange-600 flex-1 text-left">{category.name}</span>
+                                <span className="material-icons text-gray-400">chevron_right</span>
+                            </button>
+                        ))
+                    )}
                     <Link to="/collections"
                         className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
                         onClick={onClose}
@@ -178,85 +187,44 @@ const AllSidebar = ({ isOpen, onClose }) => {
         </div>
     );
 
-    const renderMobilesSection = () => (
-        <div className="p-4">
-            <button
-                onClick={() => setCurrentSection("main")}
-                className="flex items-center mb-4 p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-            >
-                <span className="material-icons mr-2 text-orange-500">arrow_back</span>
-                <span className="group-hover:text-orange-600">Back</span>
-            </button>
-            <h3 className="text-lg font-semibold mb-3 text-gray-800">Mobiles, Tablets & More</h3>
-            <div className="space-y-2">
-                <Link to="/mobile-phones"
-                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-                    onClick={onClose}
-                >
-                    <span className="material-icons mr-3 text-orange-500">smartphone</span>
-                    <span className="group-hover:text-orange-600">Mobiles</span>
-                </Link>
-                <Link to="/tablets"
-                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-                    onClick={onClose}
-                >
-                    <span className="material-icons mr-3 text-orange-500">tablet</span>
-                    <span className="group-hover:text-orange-600">Tablets</span>
-                </Link>
-                <Link to="/mobile-accessories"
-                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-                    onClick={onClose}
-                >
-                    <span className="material-icons mr-3 text-orange-500">headphones</span>
-                    <span className="group-hover:text-orange-600">Mobile Accessories</span>
-                </Link>
-            </div>
-        </div>
-    );
+    const renderCategorySection = (categoryId) => {
+        const category = categories.find(c => c._id === categoryId);
+        const categorySubcategories = subcategories.filter(sub =>
+            typeof sub.categoryId === 'object' ? sub.categoryId._id === categoryId : sub.categoryId === categoryId
+        );
 
-    const renderComputersSection = () => (
-        <div className="p-4">
-            <button
-                onClick={() => setCurrentSection("main")}
-                className="flex items-center mb-4 p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-            >
-                <span className="material-icons mr-2 text-orange-500">arrow_back</span>
-                <span className="group-hover:text-orange-600">Back</span>
-            </button>
-            <h3 className="text-lg font-semibold mb-3 text-gray-800">Computers & Accessories</h3>
-            <div className="space-y-2">
-                <Link to="/laptops"
-                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-                    onClick={onClose}
+        return (
+            <div className="p-4">
+                <button
+                    onClick={() => setCurrentSection("main")}
+                    className="flex items-center mb-4 p-2 hover:bg-orange-50 rounded-lg group transition-colors"
                 >
-                    <span className="material-icons mr-3 text-orange-500">laptop</span>
-                    <span className="group-hover:text-orange-600">Laptops</span>
-                </Link>
-                <Link to="/desktops"
-                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-                    onClick={onClose}
-                >
-                    <span className="material-icons mr-3 text-orange-500">desktop_windows</span>
-                    <span className="group-hover:text-orange-600">Desktops</span>
-                </Link>
-                <Link to="/computer-accessories"
-                    className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
-                    onClick={onClose}
-                >
-                    <span className="material-icons mr-3 text-orange-500">mouse</span>
-                    <span className="group-hover:text-orange-600">Computer Accessories</span>
-                </Link>
+                    <span className="material-icons mr-2 text-orange-500">arrow_back</span>
+                    <span className="group-hover:text-orange-600">Back</span>
+                </button>
+                <h3 className="text-lg font-semibold mb-3 text-gray-800">{category?.name}</h3>
+                <div className="space-y-2">
+                    {categorySubcategories.map((subcategory) => (
+                        <Link
+                            key={subcategory._id}
+                            to={`/category/${category?.slug}/${subcategory.slug}`}
+                            className="flex items-center p-2 hover:bg-orange-50 rounded-lg group transition-colors"
+                            onClick={onClose}
+                        >
+                            <span className="material-icons mr-3 text-orange-500">subdirectory_arrow_right</span>
+                            <span className="group-hover:text-orange-600">{subcategory.name}</span>
+                        </Link>
+                    ))}
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     let content;
     if (currentSection === "main") {
         content = renderMainSection();
-    } else if (currentSection === "mobiles") {
-        content = renderMobilesSection();
-    } else if (currentSection === "computers") {
-        content = renderComputersSection();
+    } else {
+        content = renderCategorySection(currentSection);
     }
 
     return (

@@ -1,7 +1,27 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Prata&display=swap');
+/* ✅ Do NOT include @charset here – it's already in HTML via <meta charset> */
 
+/* 🔼 All imports MUST come before any CSS rules */
+@import 'slick-carousel/slick/slick.css';
+@import 'slick-carousel/slick/slick-theme.css';
 @import "tailwindcss";
 
+/* ✅ Global font setup */
+* {
+    font-family: 'Outfit', sans-serif;
+}
+
+.prata-regular {
+    font-family: 'Prata', serif;
+    font-weight: 400;
+    font-style: normal;
+}
+
+/* ✅ Scrollbar hidden for clean look */
+::-webkit-scrollbar {
+    display: none;
+}
+
+/* ✅ Navigation styles */
 a.active hr {
     display: block;
 }
@@ -9,25 +29,10 @@ a.active hr {
 .nav-active {
     font-weight: bold;
     color: black;
-    /* Optional: Change color when active */
 }
 
-
-* {
-    font-family: "Outfit", sans-serif;
-}
-
-.prata-regular {
-    font-family: "Prata", serif;
-    font-weight: 400;
-    font-style: normal;
-}
-
-::-webkit-scrollbar {
-    display: none;
-}
-
-@media (max-width:640px) {
+/* ✅ Responsive nav behavior */
+@media (max-width: 640px) {
     a.active {
         background-color: black;
         color: white;

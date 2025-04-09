@@ -31,7 +31,7 @@ const Orders = ({ token }) => {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(5); // Set default page size to 5
   const [totalOrders, setTotalOrders] = useState(0);
 
   // Filter states
@@ -57,6 +57,13 @@ const Orders = ({ token }) => {
 
   // UI refs
   const invoiceRef = useRef(null);
+
+  // State for items modal visibility
+  const [showItemsModal, setShowItemsModal] = useState(false);
+  // State for items to display in the modal
+  const [itemsToShow, setItemsToShow] = useState([]);
+  // Store Order ID for modal title
+  const [currentItemOrderId, setCurrentItemOrderId] = useState('');
 
   // Main data fetching function
   const fetchOrders = async (page = currentPage) => {
@@ -105,51 +112,78 @@ const Orders = ({ token }) => {
     });
   };
 
-  // Identify top products from orders
+  // Identify top products from orders (More Robust Logging)
   const identifyTopProducts = (orderData) => {
     const productCounts = {};
 
-    orderData.forEach(order => {
-      order.items.forEach(item => {
-        const productId = item.productId;
-        if (!productCounts[productId]) {
-          productCounts[productId] = {
-            id: productId,
-            name: item.name,
-            image: item.image?.[0] || '',
+    (orderData || []).forEach((order, orderIndex) => { // Add safety check for orderData
+      (order.items || []).forEach((item, itemIndex) => { // Add safety check for order.items
+        // --- Log the item structure FIRST ---
+        // console.log(`Order ${orderIndex}, Item ${itemIndex} Structure:`, JSON.stringify(item));
+
+        // --- Check for either productId or _id ---
+        const productId = item.productId || item._id; // Use whichever is present
+
+        if (!productId) {
+          console.warn(`Order ${orderIndex}, Item ${itemIndex}: Skipping item with missing product identifier (productId or _id). Item Data:`, item);
+          return; // Skip this item if identifier is missing
+        }
+        // Ensure productId is treated as a string for consistency
+        const productIdStr = productId.toString();
+
+        if (!productCounts[productIdStr]) {
+          productCounts[productIdStr] = {
+            id: productIdStr, // Store the found ID
+            name: item.name || 'Unknown Product',
+            image: item.image?.[0] || '', // Use optional chaining for image
             count: 0,
             quantity: 0,
             revenue: 0
           };
         }
-        productCounts[productId].count += 1;
-        productCounts[productId].quantity += item.quantity;
-        productCounts[productId].revenue += item.price * item.quantity;
+        // Use the string ID for accessing the count object
+        productCounts[productIdStr].count += 1;
+        productCounts[productIdStr].quantity += item.quantity || 0; // Add safety check for quantity
+        productCounts[productIdStr].revenue += (item.price || 0) * (item.quantity || 0); // Add safety check for price/quantity
       });
     });
 
-    const topProductsArray = Object.values(productCounts)
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 5);
+    // Filter out any entries that might still have ended up with an invalid ID (just in case)
+    const validProductCounts = Object.values(productCounts).filter(p => p.id);
 
-    setTopProducts(topProductsArray);
+    const topProductsArray = validProductCounts
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5); // Slice top 5 for the detailed modal
+
+    setTopProducts(topProductsArray); // State holds top 5
   };
 
   // Fetch order timeline/history
   const fetchOrderTimeline = async (orderId) => {
+    if (!orderId || !token) {
+      setOrderTimeline([]);
+      return;
+    }
     try {
       const response = await axios.get(
-        `${backendUrl}/api/order/timeline/${orderId}`,
+        `${backendUrl}/api/order/timeline/${orderId}`, // Corrected Route
         { headers: { token } }
       );
 
       if (response.data.success) {
         setOrderTimeline(response.data.timeline || []);
       } else {
+        toast.error("Failed to fetch order timeline: " + response.data.message);
         setOrderTimeline([]);
       }
     } catch (error) {
       console.error("Error fetching timeline:", error);
+      // Check for 404 specifically
+      if (error.response && error.response.status === 404) {
+        toast.error("Timeline data not found for this order (404).");
+      } else {
+        toast.error("Error fetching timeline data.");
+      }
       setOrderTimeline([]);
     }
   };
@@ -425,13 +459,14 @@ const Orders = ({ token }) => {
 
   // Save order note
   const saveOrderNote = async () => {
-    if (!selectedOrder || !orderNote.trim()) {
+    if (!selectedOrder?._id || !orderNote.trim()) {
+      toast.warning("Please enter a note.");
       return;
     }
 
     try {
       const response = await axios.post(
-        `${backendUrl}/api/order/add-note`,
+        `${backendUrl}/api/order/add-note`, // Corrected Route
         {
           orderId: selectedOrder._id,
           note: orderNote.trim()
@@ -439,25 +474,18 @@ const Orders = ({ token }) => {
         { headers: { token } }
       );
 
-      if (response.data.success) {
+      if (response.data.success && response.data.note) {
         toast.success("Note added successfully");
-
-        // Add note to timeline (in production, this would come from the server)
-        const timelineEntry = {
-          action: "Note added",
-          timestamp: Date.now(),
-          note: orderNote.trim()
-        };
-
-        setOrderTimeline([timelineEntry, ...orderTimeline]);
+        // Optimistically add note to the local timeline state
+        setOrderTimeline([response.data.note, ...orderTimeline].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
         setOrderNote('');
         setShowNoteModal(false);
       } else {
-        toast.error(response.data.message);
+        toast.error(response.data.message || "Failed to add note.");
       }
     } catch (error) {
       console.error("Error adding note:", error);
-      toast.error("Failed to add note: " + error.message);
+      toast.error("Failed to add note: " + (error.response?.data?.message || error.message));
     }
   };
 
@@ -586,22 +614,23 @@ const Orders = ({ token }) => {
   };
 
   // Contact customer via WhatsApp
-  const contactViaWhatsApp = (phone, orderNumber) => {
+  const contactViaWhatsApp = (phone, orderNumber, customerName, items) => {
     if (!phone) {
       toast.error("Phone number not available");
       return;
     }
-
-    // Format phone number (remove any non-digit characters)
     const formattedPhone = phone.replace(/\D/g, '');
+    const orderIdShort = orderNumber.substring(orderNumber.length - 8);
 
-    // Create WhatsApp message
-    const message = `Hello! This is Trendify regarding your order #${orderNumber}. How can we assist you today?`;
+    // Create a more detailed message
+    let message = `Hello ${customerName || 'there'}! 👋\n\nThis is Trendify regarding your order #${orderIdShort}.\n\n`;
+    message += `Items:\n`;
+    items.forEach(item => {
+      message += `- ${item.name} (Qty: ${item.quantity}${item.size ? `, Size: ${item.size}` : ''})\n`;
+    });
+    message += `\nHow can we assist you today? 😊`;
 
-    // Create WhatsApp URL
     const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
-
-    // Open WhatsApp in new tab
     window.open(whatsappUrl, '_blank');
   };
 
@@ -617,122 +646,80 @@ const Orders = ({ token }) => {
       return;
     }
 
-    setIsUpdating(true);
+    setIsUpdating(true); // Indicate processing
 
     try {
       // Create email subject and body with HTML
-      const subject = `Invoice for Your Trendify Order #${orderNumber.substring(orderNumber.length - 8)}`;
+      const subject = `🧾 Invoice for Your Trendify Order #${orderNumber.substring(orderNumber.length - 8)}`;
 
-      // Generate invoice HTML
+      // Generate invoice HTML (Enhanced slightly)
       const items = selectedOrder.items.map(item => `
-        <tr>
-          <td style="padding:8px;border-bottom:1px solid #eee;">${item.name}</td>
-          <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
-          <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${item.size || '-'}</td>
-          <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${currency} ${item.price.toFixed(2)}</td>
-          <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${currency} ${(item.price * item.quantity).toFixed(2)}</td>
+        <tr style="vertical-align:top;">
+          <td style="padding:10px 8px;border-bottom:1px solid #eee;">
+              <img src="${item.image?.[0] || 'https://via.placeholder.com/50'}" alt="${item.name}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;margin-right:10px;vertical-align:middle;">
+              ${item.name}
+          </td>
+          <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:center;">${item.size || '-'}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right;">${currency} ${item.price.toFixed(2)}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right;">${currency} ${(item.price * item.quantity).toFixed(2)}</td>
         </tr>
       `).join('');
 
-      // Create HTML email content
+      // Create HTML email content (Using a slightly cleaner template)
       const emailContent = `
-        <div style="max-width:600px;margin:0 auto;padding:20px;background-color:#f4f4f4;font-family:Arial,sans-serif;">
-          <div style="background:#ffffff;padding:30px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.05);color:#333;">
-            <h1 style="color:#FF6600;font-size:24px;text-align:center;">Invoice for Order #${selectedOrder._id.substring(selectedOrder._id.length - 8)}</h1>
-            
-            <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <style> body { font-family: Arial, sans-serif; color: #333; } .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #eee; } .header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eee; } .header h1 { color: #6c63ff; margin: 0; } .section { margin-bottom: 20px; } .section h3 { font-size: 16px; color: #444; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; } .address p, .details p { font-size: 14px; line-height: 1.6; margin: 0 0 5px 0; } .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; } .items-table th, .items-table td { padding: 10px 8px; border-bottom: 1px solid #eee; text-align: left; } .items-table th { background-color: #f8f8f8; font-weight: bold; } .items-table .text-right { text-align: right; } .items-table .text-center { text-align: center; } .items-table img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px; vertical-align: middle; } .totals { text-align: right; margin-top: 20px; } .totals p { margin: 5px 0; font-size: 14px; } .totals strong { font-size: 15px; } .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; } .footer a { color: #6c63ff; text-decoration: none; } </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header"><h1>Trendify Order Invoice</h1></div>
+            <div class="section details" style="display: flex; justify-content: space-between;">
               <div>
-                <p style="font-size:14px;line-height:1.6;margin:0;">
-                  <strong>Trendify</strong><br/>
-                  123 Fashion Street<br/>
-                  Style City, SC 12345<br/>
-                  support@trendify.com
-                </p>
+                <p><strong>Trendify</strong><br/>123 Fashion Street<br/>Style City, SC 12345</p>
               </div>
-              <div style="text-align:right;">
-                <p style="font-size:14px;line-height:1.6;margin:0;">
-                  <strong>Invoice #:</strong> ${selectedOrder._id}<br/>
-                  <strong>Date:</strong> ${new Date(selectedOrder.date).toLocaleDateString()}<br/>
-                  <strong>Payment:</strong> ${selectedOrder.payment ? "Paid" : "Pending"}<br/>
-                  <strong>Method:</strong> ${selectedOrder.paymentMethod}
+              <div style="text-align: right;">
+                <p><strong>Invoice #:</strong> ${selectedOrder._id}<br/>
+                   <strong>Date:</strong> ${new Date(selectedOrder.date).toLocaleDateString()}<br/>
+                   <strong>Payment:</strong> ${selectedOrder.payment ? "Paid" : "Pending"} (${selectedOrder.paymentMethod})
                 </p>
               </div>
             </div>
-            
-            <div style="margin-bottom:20px;">
-              <h3 style="font-size:16px;margin-bottom:10px;">Customer:</h3>
-              <p style="font-size:14px;line-height:1.6;margin:0;">
-                ${selectedOrder.address.firstName} ${selectedOrder.address.lastName}<br/>
-                ${selectedOrder.address.street}<br/>
-                ${selectedOrder.address.city}, ${selectedOrder.address.state} ${selectedOrder.address.zipcode}<br/>
-                ${selectedOrder.address.country}<br/>
-                Phone: ${selectedOrder.address.phone}
+            <div class="section address">
+              <h3>Bill To:</h3>
+              <p>${selectedOrder.address.firstName} ${selectedOrder.address.lastName}<br/>
+                 ${selectedOrder.address.street}<br/>
+                 ${selectedOrder.address.city}, ${selectedOrder.address.state} ${selectedOrder.address.zipcode}<br/>
+                 ${selectedOrder.address.country}<br/>
+                 Phone: ${selectedOrder.address.phone}
               </p>
             </div>
-            
-            <div style="margin-bottom:20px;">
-              <h3 style="font-size:16px;margin-bottom:10px;">Order Items:</h3>
-              <table style="width:100%;border-collapse:collapse;">
-                <thead>
-                  <tr style="background-color:#f4f4f4;">
-                    <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Item</th>
-                    <th style="padding:10px;text-align:center;border-bottom:2px solid #ddd;">Quantity</th>
-                    <th style="padding:10px;text-align:center;border-bottom:2px solid #ddd;">Size</th>
-                    <th style="padding:10px;text-align:right;border-bottom:2px solid #ddd;">Price</th>
-                    <th style="padding:10px;text-align:right;border-bottom:2px solid #ddd;">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${items}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colspan="3" style="padding:8px;"></td>
-                    <td style="padding:8px;text-align:right;font-weight:bold;">Subtotal</td>
-                    <td style="padding:8px;text-align:right;">${currency} ${selectedOrder.amount.toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td colspan="3" style="padding:8px;"></td>
-                    <td style="padding:8px;text-align:right;font-weight:bold;">Shipping</td>
-                    <td style="padding:8px;text-align:right;">${currency} 0.00</td>
-                  </tr>
-                  <tr style="background-color:#f4f4f4;">
-                    <td colspan="3" style="padding:8px;"></td>
-                    <td style="padding:8px;text-align:right;font-weight:bold;">Total</td>
-                    <td style="padding:8px;text-align:right;font-weight:bold;">${currency} ${selectedOrder.amount.toFixed(2)}</td>
-                  </tr>
-                </tfoot>
+            <div class="section items">
+              <h3>Order Items:</h3>
+              <table class="items-table">
+                <thead><tr><th>Item</th><th class="text-center">Qty</th><th class="text-center">Size</th><th class="text-right">Price</th><th class="text-right">Total</th></tr></thead>
+                <tbody>${items}</tbody>
               </table>
             </div>
-            
-            <div style="text-align:center;margin-top:30px;padding-top:20px;border-top:1px solid #eee;">
-              <p style="font-size:14px;color:#666;">Thank you for shopping with Trendify!</p>
-              <p style="font-size:12px;color:#999;margin-top:15px;">
-                If you have any questions, please contact us at
-                <a href="mailto:support@trendify.com" style="color:#FF6600;">support@trendify.com</a>
-              </p>
+            <div class="totals">
+              <p>Subtotal: <span style="float:right;">${currency} ${selectedOrder.amount.toFixed(2)}</span></p>
+              <p>Shipping: <span style="float:right;">${currency} 0.00</span></p>
+              <p><strong>Total: <span style="float:right;">${currency} ${selectedOrder.amount.toFixed(2)}</span></strong></p>
+            </div>
+            <div class="footer">
+              <p>Thank you for your purchase!</p>
+              <p>Questions? Contact <a href="mailto:support@trendify.com">support@trendify.com</a></p>
             </div>
           </div>
-        </div>
+        </body>
+        </html>
       `;
 
-      // Check if we're in development mode (for demo/testing purposes)
-      const isDevelopmentMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-      // Alternative implementation for development environment
-      if (isDevelopmentMode) {
-        // Create simulated response with a timeout to simulate server response
-        setTimeout(() => {
-          toast.success("Invoice sent successfully! (Development mode)");
-          setShowInvoice(false);
-          setIsUpdating(false);
-        }, 1500);
-        return;
-      }
-
-      // Send API request to send email
+      // Send API request to send email (make sure backend endpoint exists)
       const response = await axios.post(
-        `${backendUrl}/api/email/send-invoice`,
+        `${backendUrl}/api/email/send-invoice`, // Ensure this route exists on your backend
         {
           email: email,
           subject: subject,
@@ -741,35 +728,32 @@ const Orders = ({ token }) => {
         },
         {
           headers: { token },
-          timeout: 10000 // 10 second timeout
+          timeout: 15000 // Increased timeout
         }
       );
 
       if (response.data.success) {
         toast.success("Invoice sent successfully!");
-        setShowInvoice(false);
+        // Optionally close the invoice preview modal
+        // setShowInvoice(false);
       } else {
-        toast.error(response.data.message || "Failed to send invoice");
+        toast.error(response.data.message || "Failed to send invoice via backend.");
       }
-    } catch (error) {
-      console.error("Error sending invoice:", error);
 
-      // Handle different types of errors
+    } catch (error) {
+      // ... (keep existing robust error handling) ...
+      console.error("Error sending invoice:", error);
       if (error.code === 'ECONNABORTED') {
-        toast.error("Request timed out. Please try again later.");
+        toast.error("Email request timed out. Please try again.");
       } else if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        toast.error(`Server error: ${error.response.data.message || error.response.status}`);
+        toast.error(`Email Server Error: ${error.response.data.message || error.response.status}`);
       } else if (error.request) {
-        // The request was made but no response was received
-        toast.error("No response from server. Please check if the backend is running.");
+        toast.error("No response from email server.");
       } else {
-        // Something happened in setting up the request that triggered an Error
         toast.error(`Failed to send invoice: ${error.message}`);
       }
     } finally {
-      setIsUpdating(false);
+      setIsUpdating(false); // Stop loading indicator
     }
   };
 
@@ -817,6 +801,47 @@ const Orders = ({ token }) => {
       selectedOrderIds.length === filteredOrders.length
     );
   }, [selectedOrderIds, filteredOrders]);
+
+  // Add this function inside the Orders component
+  const handleMarkCodPaid = async (orderId) => {
+    if (!orderId || !token) {
+      toast.error("Invalid request");
+      return;
+    }
+
+    // Optional: Add a confirmation dialog here if desired
+    const confirmPayment = window.confirm("Are you sure you want to mark this COD order as paid?");
+    if (!confirmPayment) {
+      return;
+    }
+
+    setIsUpdating(true); // Use existing loading state or create a specific one
+    try {
+      const response = await axios.post(
+        `${backendUrl}/api/order/mark-cod-paid/${orderId}`,
+        {}, // No body needed for this request
+        { headers: { token } }
+      );
+
+      if (response.data.success) {
+        toast.success("Order marked as paid successfully!");
+        await fetchOrders(); // Refresh the order list
+        // If the order details modal is open and showing this order, update its state too
+        if (selectedOrder && selectedOrder._id === orderId) {
+          setSelectedOrder({ ...selectedOrder, payment: true });
+          // Also potentially update the timeline if fetched
+          fetchOrderTimeline(orderId);
+        }
+      } else {
+        toast.error(response.data.message || "Failed to mark order as paid.");
+      }
+    } catch (error) {
+      console.error("Error marking COD as paid:", error);
+      toast.error("Error: " + (error.response?.data?.message || error.message));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   if (loading && orders.length === 0) {
     return (
@@ -875,32 +900,42 @@ const Orders = ({ token }) => {
           <p className="text-xs text-gray-500 mt-2">Orders delayed 3+ days</p>
         </div>
 
+        {/* Modified Top Products Widget */}
         <div
-          className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-          onClick={() => setShowAnalytics(true)}
+          className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:bg-gray-50 transition-colors flex flex-col justify-between" // Added flex-col and justify-between
+          onClick={() => setShowAnalytics(true)} // Keep onClick to open the modal
         >
-          <h3 className="text-gray-500 text-sm font-medium">Top Products</h3>
-          <div className="flex mt-2 items-center justify-between">
-            <div className="flex flex-col">
-              {topProducts.length > 0 ? (
-                <p className="font-medium text-gray-800">
-                  {topProducts[0].name.length > 12
-                    ? topProducts[0].name.substring(0, 12) + '...'
-                    : topProducts[0].name}
-                </p>
-              ) : (
-                <p className="text-gray-500">No data</p>
-              )}
-              <button className="text-xs text-blue-600 mt-2">View All</button>
-            </div>
-            {topProducts.length > 0 && topProducts[0].image && (
-              <img
-                src={topProducts[0].image}
-                alt={topProducts[0].name}
-                className="w-10 h-10 object-cover rounded-md"
-              />
+          <div> {/* Wrapper for title and list */}
+            <h3 className="text-gray-500 text-sm font-medium mb-2">Top Selling Products</h3>
+            {topProducts.length > 0 ? (
+              <ul className="space-y-2"> {/* Use an unordered list */}
+                {topProducts.slice(0, 3).map((product) => ( // Show top 3
+                  <li key={product.id} className="flex items-center gap-2 text-xs">
+                    <img
+                      src={product.image || assets.parcel_icon} // Fallback image
+                      alt={product.name}
+                      className="w-6 h-6 object-cover rounded-md border-gray-300 flex-shrink-0 border bg-gray-100" // Added background
+                    />
+                    <span className="flex-grow font-medium text-gray-700 truncate" title={product.name}>
+                      {product.name}
+                    </span>
+                    <span className="text-gray-500 font-semibold flex-shrink-0">
+                      ({product.quantity} sold)
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">No sales data yet.</p>
             )}
           </div>
+          <button
+            type="button" // Prevent form submission if inside a form
+            className="text-xs text-blue-600 hover:underline mt-2 text-right w-full focus:outline-none" // Added focus style
+            onClick={(e) => { e.stopPropagation(); setShowAnalytics(true); }} // Ensure modal opens even if button clicked
+          >
+            View Full Analytics
+          </button>
         </div>
       </div>
 
@@ -1219,7 +1254,8 @@ const Orders = ({ token }) => {
                   {currency} {order.amount}
                 </td>
                 <td className="px-2 sm:px-4 py-3">
-                  <div className="flex items-center justify-center gap-2 bg-gray-50 rounded p-1" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-center gap-1 sm:gap-2 bg-gray-50 rounded p-1" onClick={(e) => e.stopPropagation()}>
+                    {/* Existing Invoice Button */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1232,10 +1268,11 @@ const Orders = ({ token }) => {
                       <span className="ml-1 text-xs hidden sm:inline">Invoice</span>
                     </button>
 
+                    {/* Existing WhatsApp Button */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        contactViaWhatsApp(order.address.phone, order._id);
+                        contactViaWhatsApp(order.address.phone, order._id, `${order.address.firstName} ${order.address.lastName}`, order.items);
                       }}
                       className="p-1.5 bg-white text-green-600 hover:bg-green-50 rounded-md transition-colors border border-green-300"
                       title="WhatsApp"
@@ -1243,6 +1280,25 @@ const Orders = ({ token }) => {
                       <i className="material-icons" style={{ fontSize: '18px' }}>chat</i>
                     </button>
 
+                    {/* --- Add Conditional COD Payment Button --- */}
+                    {order.paymentMethod === 'COD' && !order.payment && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent row click
+                          handleMarkCodPaid(order._id);
+                        }}
+                        disabled={isUpdating}
+                        className="p-1.5 text-emerald-600 hover:text-emerald-800 rounded-md hover:bg-emerald-50 transition-colors flex items-center border border-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Mark COD as Paid"
+                      >
+                        <i className="material-icons" style={{ fontSize: '16px' }}>price_check</i>
+                        <span className="ml-1 text-xs hidden sm:inline">Paid</span>
+                      </button>
+                    )}
+                    {/* ------------------------------------------- */}
+
+
+                    {/* Existing Status Dropdown */}
                     <select
                       onChange={(event) => {
                         event.stopPropagation();
@@ -1280,6 +1336,7 @@ const Orders = ({ token }) => {
             }}
             className="mr-2 p-2 border rounded-md text-sm"
           >
+            <option value="5">5 per page</option>
             <option value="10">10 per page</option>
             <option value="20">20 per page</option>
             <option value="50">50 per page</option>
@@ -1600,7 +1657,7 @@ const Orders = ({ token }) => {
 
                     <div className="mt-4 flex gap-2">
                       <button
-                        onClick={() => contactViaWhatsApp(selectedOrder.address.phone, selectedOrder._id)}
+                        onClick={() => contactViaWhatsApp(selectedOrder.address.phone, selectedOrder._id, `${selectedOrder.address.firstName} ${selectedOrder.address.lastName}`, selectedOrder.items)}
                         className="px-3 py-1.5 bg-green-500 text-white rounded-md hover:bg-green-600 text-sm flex items-center"
                       >
                         <i className="material-icons mr-1" style={{ fontSize: '14px' }}>chat</i>
@@ -1622,6 +1679,25 @@ const Orders = ({ token }) => {
 
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h4 className="font-medium text-gray-700 mb-3">Order Items</h4>
+                  <div className="flex justify-between items-center mb-3"> {/* Add this div */}
+                    <h4 className="font-medium text-gray-700">Order Items</h4>
+                    {/* --- Add View Items Button --- */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setItemsToShow(selectedOrder.items || []); // Set the items
+                        setCurrentItemOrderId(selectedOrder._id); // Set the order ID
+                        setShowItemsModal(true); // Show the modal
+                      }}
+                      className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 text-sm flex items-center"
+                      title="View All Items"
+                    >
+                      <i className="material-icons mr-1" style={{ fontSize: '14px' }}>visibility</i>
+                      View Items
+                    </button>
+                    {/* ----------------------------- */}
+                  </div>
+                  {/* Existing items table */}
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-100">
@@ -1674,21 +1750,44 @@ const Orders = ({ token }) => {
                   </div>
 
                   {orderTimeline.length === 0 ? (
-                    <p className="text-sm text-gray-500 py-2">No timeline data available</p>
+                    <p className="text-sm text-gray-500 py-2">No timeline events available.</p>
                   ) : (
-                    <div className="space-y-3">
-                      {orderTimeline.map((entry, index) => (
-                        <div key={index} className="flex gap-3 border-l-2 border-gray-300 pl-3">
-                          <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">
-                              {entry.status || entry.action || "Update"}
-                            </p>
-                            <p className="text-xs text-gray-500">{formatDateTime(entry.timestamp)}</p>
-                            {entry.note && <p className="text-sm text-gray-600 mt-1">{entry.note}</p>}
+                    <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                      {orderTimeline // Already sorted by backend
+                        .map((entry, index) => (
+                          <div key={index} className="flex gap-3 border-l-2 border-gray-300 pl-4 relative">
+                            {/* Timeline Dot - Different color based on type */}
+                            <div className={`absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white ${entry.type === 'status_change' ? 'bg-green-500' :
+                              entry.type === 'note' ? 'bg-yellow-500' :
+                                'bg-blue-500' // Default/event color
+                              }`}></div>
+
+                            <div className="flex-1 pb-2">
+                              <div className="flex justify-between items-center">
+                                <p className="text-sm font-semibold text-gray-800">
+                                  {/* Display specific action text based on type */}
+                                  {entry.type === 'note' ? `Note Added by ${entry.addedBy}` :
+                                    entry.type === 'status_change' ? `Status Changed` :
+                                      entry.text /* Display text for 'event' or fallback */}
+                                </p>
+                                <p className="text-xs text-gray-500">{formatDateTime(entry.timestamp)}</p>
+                              </div>
+                              {/* Display details based on type */}
+                              {entry.type === 'note' && (
+                                <p className="text-sm text-gray-600 mt-1 bg-white p-2 rounded border border-gray-200 shadow-sm">{entry.text}</p>
+                              )}
+                              {entry.type === 'status_change' && (
+                                <p className="text-sm text-gray-600 mt-1">
+                                  From <span className="font-medium">{entry.previousStatus}</span> to <span className="font-medium">{entry.newStatus}</span>
+                                  <span className="text-xs text-gray-400 ml-2">(by {entry.addedBy})</span>
+                                </p>
+                              )}
+                              {entry.type === 'event' && entry.note && ( // Display note for 'event' type if present
+                                <p className="text-sm text-gray-600 mt-1">{entry.note}</p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   )}
                 </div>
@@ -1797,20 +1896,21 @@ const Orders = ({ token }) => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {topProducts.map((product, index) => (
-                      <tr key={index}>
+                      <tr key={product.id || index}> {/* Use product.id as key if available */}
                         <td className="px-4 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             {product.image && (
                               <img src={product.image} alt={product.name} className="w-10 h-10 rounded-md object-cover mr-3" />
                             )}
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                              <div className="text-xs text-gray-500">ID: {product.id.substring(0, 8)}</div>
+                              <div className="text-sm font-medium text-gray-900">{product.name || 'N/A'}</div>
+                              {/* Use optional chaining for ID */}
+                              <div className="text-xs text-gray-500">ID: {product.id?.substring(0, 8) || 'N/A'}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-medium">{product.quantity}</td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-medium">{currency} {product.revenue.toFixed(2)}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-medium">{product.quantity || 0}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-medium">{currency} {(product.revenue || 0).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1822,6 +1922,73 @@ const Orders = ({ token }) => {
               <button
                 onClick={() => setShowAnalytics(false)}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Order Items Modal --- */}
+      {showItemsModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center backdrop-blur-sm bg-black/40 p-4" onClick={() => setShowItemsModal(false)}> {/* Higher z-index */}
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-3xl w-full mx-4 border border-gray-200 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}> {/* Stop propagation */}
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-4 pb-3 border-b">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Items for Order #{currentItemOrderId.substring(currentItemOrderId.length - 8)}
+              </h3>
+              <button
+                onClick={() => setShowItemsModal(false)}
+                className="p-2 text-gray-500 hover:text-gray-700 rounded-md"
+              >
+                <i className="material-icons">close</i>
+              </button>
+            </div>
+
+            {/* Modal Body - Items Table */}
+            <div className="overflow-y-auto flex-grow">
+              {itemsToShow.length === 0 ? (
+                <p className="text-center text-gray-500 py-10">No items found for this order.</p>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-100 sticky top-0"> {/* Sticky header */}
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Product</th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">Quantity</th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">Size</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Price</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {itemsToShow.map((item, index) => (
+                      <tr key={index}>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center">
+                            {item.image && item.image[0] && (
+                              <img src={item.image[0]} alt={item.name} className="w-10 h-10 mr-3 object-cover rounded shadow-sm" />
+                            )}
+                            <span className="text-sm font-medium text-gray-800">{item.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-center text-sm text-gray-700">{item.quantity}</td>
+                        <td className="px-4 py-2 text-center text-sm text-gray-700">{item.size || '-'}</td>
+                        <td className="px-4 py-2 text-right text-sm text-gray-700">{currency} {item.price.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right text-sm font-semibold text-gray-800">{currency} {(item.price * item.quantity).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Modal Footer (Optional) */}
+            <div className="pt-4 border-t mt-4 flex justify-end">
+              <button
+                onClick={() => setShowItemsModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
               >
                 Close
               </button>

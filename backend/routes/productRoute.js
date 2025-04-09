@@ -7,7 +7,10 @@ import {
     updateStock,
     updateProductStatus,
     getProductOrders,
-    getProductDetails
+    getProductDetails,
+    getBestsellers,
+    getNewReleases,
+    getTrendingProducts
 } from "../controllers/productController.js";
 import upload from "../middleware/multer.js";
 import { isAdmin, adminAuth } from "../middleware/authMiddleware.js";
@@ -19,6 +22,12 @@ const productRouter = express.Router();
 productRouter.get('/list', listProduct);
 productRouter.post('/single', singleProduct);
 productRouter.get('/details/:productId', getProductDetails);
+productRouter.get('/bestsellers', getBestsellers);
+productRouter.get('/bestsellers/:departmentId', getBestsellers);
+productRouter.get('/new-releases', getNewReleases);
+productRouter.get('/new-releases/:departmentId', getNewReleases);
+productRouter.get('/trending', getTrendingProducts);
+productRouter.get('/trending/:departmentId', getTrendingProducts);
 
 // Admin endpoints
 productRouter.post(

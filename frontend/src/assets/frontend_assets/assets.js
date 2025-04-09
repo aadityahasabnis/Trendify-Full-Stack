@@ -54,6 +54,7 @@ import p_img49 from './p_img49.png'
 import p_img50 from './p_img50.png'
 import p_img51 from './p_img51.png'
 import p_img52 from './p_img52.png'
+import logo_white from './trendify_logo_white_text.png'
 
 
 import logo from './logo.png'
@@ -98,7 +99,8 @@ export const assets = {
     contact_img,
     razorpay_logo,
     stripe_logo,
-    cross_icon
+    cross_icon,
+    logo_white
 }
 export const categories = {
     Electronics: {
@@ -284,7 +286,7 @@ export const products = [
         name: "Men Round Neck Pure Cotton T-shirt",
         description: "A lightweight, usually knitted, pullover shirt, close-fitting and with a round neckline and short sleeves, worn as an undershirt or outer garment.",
         price: 200,
-        image: [p_img2_1,p_img2_2,p_img2_3,p_img2_4],
+        image: [p_img2_1, p_img2_2, p_img2_3, p_img2_4],
         category: "Men",
         subCategory: "Topwear",
         sizes: ["M", "L", "XL"],

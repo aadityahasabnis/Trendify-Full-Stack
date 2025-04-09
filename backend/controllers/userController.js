@@ -3,9 +3,13 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import userModel from "../models/userModel.js";
 import orderModel from "../models/orderModel.js";
+import reviewModel from "../models/reviewModel.js";
+import cartModel from "../models/cartModel.js";
+import newsletterModel from "../models/newsletterModel.js";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import { toast } from "react-toastify";
+import mongoose from "mongoose";
 
 const createToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET);
@@ -108,7 +112,7 @@ const registerUser = async (req, res) => {
                         
                         <p style="font-size:16px;line-height:1.6;text-align:center;">
                             Thanks for joining the <strong>Trendify</strong> family! 🛍️<br/>
-                            We’re super excited to have you on board.
+                            We're super excited to have you on board.
                         </p>
         
                         <p style="font-size:15px;line-height:1.6;text-align:center;">
@@ -137,7 +141,7 @@ const registerUser = async (req, res) => {
                 </div>
             `,
         };
-        
+
 
         await transporter.sendMail(mailOptions);
 
@@ -284,7 +288,7 @@ const requestPasswordReset = async (req, res) => {
                             </a>
                         </div>
                         <p style="font-size:14px;line-height:1.5;color:#555;">
-                            Didn’t request this? No worries. Just ignore this email, and your password will stay the same. 🚫
+                            Didn't request this? No worries. Just ignore this email, and your password will stay the same. 🚫
                         </p>
                         <hr style="margin:30px 0;border:none;border-top:1px solid #ddd;">
                         <p style="text-align:center;font-size:13px;color:#888;">
@@ -296,8 +300,8 @@ const requestPasswordReset = async (req, res) => {
                 </div>
             `,
         };
-        
-        
+
+
 
         // Send email
         await transporter.sendMail(mailOptions);
@@ -358,6 +362,158 @@ const resetPassword = async (req, res) => {
     }
 };
 
+// --- Admin: Get All Users ---
+const getAllUsers = async (req, res) => {
+    try {
+        const users = await userModel.find({}, '-password'); // Exclude password
+        // Optional: Add counts for orders/reviews if needed for the list view
+        // This can be slow for many users. Consider doing it in getUserDetails instead.
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error("Error fetching all users:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch users" });
+    }
+};
+
+// --- Admin: Get Detailed User Info ---
+const getUserDetailsAdmin = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ success: false, message: "Invalid User ID" });
+        }
+
+        const user = await userModel.findById(userId, '-password'); // Exclude password
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        // Fetch related data
+        const orders = await orderModel.find({ userId }).sort({ date: -1 });
+        const reviews = await reviewModel.find({ userId }).populate('productId', 'name').sort({ date: -1 });
+        const cart = await cartModel.findOne({ userId }); // Assuming one cart per user
+        const newsletterSub = await newsletterModel.findOne({ email: user.email });
+
+        res.json({
+            success: true,
+            details: {
+                user: user.toObject(), // Convert to plain object
+                orders,
+                reviews,
+                cart: cart ? cart.items : {},
+                newsletter: {
+                    isSubscribed: newsletterSub ? newsletterSub.isSubscribed : false,
+                    email: user.email // Include email for management
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error("Error fetching user details (admin):", error);
+        res.status(500).json({ success: false, message: "Failed to fetch user details" });
+    }
+};
+
+// --- Admin: Block/Unblock User ---
+const toggleBlockUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ success: false, message: "Invalid User ID" });
+        }
+
+        const user = await userModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        // Prevent blocking the main admin account (important!)
+        if (user.email === process.env.ADMIN_EMAIL) {
+            return res.status(403).json({ success: false, message: "Cannot block the primary admin account." });
+        }
+
+        user.isBlocked = !user.isBlocked;
+        await user.save();
+
+        // Send email notification if user is blocked
+        if (user.isBlocked) {
+            try {
+                const transporter = nodemailer.createTransport({
+                    service: "gmail",
+                    auth: {
+                        user: process.env.EMAIL_USERNAME,
+                        pass: process.env.EMAIL_PASSWORD,
+                    },
+                    tls: {
+                        rejectUnauthorized: false,
+                    },
+                    secure: false,
+                });
+                const mailOptions = {
+                    from: `"Trendify Admin" <${process.env.EMAIL_USERNAME}>`,
+                    to: user.email,
+                    subject: "🚨 Your Trendify Account Has Been Temporarily Blocked",
+                    html: `
+                        <p>Hello ${user.name},</p>
+                        <p>Your Trendify account has been temporarily blocked due to a violation of our terms of service or community guidelines.</p>
+                        <p>While blocked, you may not be able to log in or interact with certain features, and your reviews may be hidden.</p>
+                        <p>If you believe this is an error, please contact support at <a href="mailto:${process.env.SUPPORT_EMAIL || 'support@trendify.com'}">${process.env.SUPPORT_EMAIL || 'support@trendify.com'}</a>.</p>
+                        <p>Sincerely,<br/>The Trendify Team</p>
+                    `
+                };
+                await transporter.sendMail(mailOptions);
+            } catch (emailError) {
+                console.error("Failed to send block notification email:", emailError);
+                // Don't fail the whole request if email fails, but log it.
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `User ${user.isBlocked ? 'blocked' : 'unblocked'} successfully.`,
+            user: { _id: user._id, isBlocked: user.isBlocked } // Return updated status
+        });
+
+    } catch (error) {
+        console.error("Error toggling user block status:", error);
+        res.status(500).json({ success: false, message: "Failed to update user status" });
+    }
+};
+
+// --- Admin: Delete User ---
+const deleteUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ success: false, message: "Invalid User ID" });
+        }
+
+        const user = await userModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        // Prevent deleting the main admin account (important!)
+        if (user.email === process.env.ADMIN_EMAIL) {
+            return res.status(403).json({ success: false, message: "Cannot delete the primary admin account." });
+        }
+
+        // Perform cascading deletes (or decide how to handle associated data)
+        await reviewModel.deleteMany({ userId });
+        await cartModel.deleteOne({ userId });
+        await newsletterModel.deleteOne({ email: user.email });
+        // Orders are usually kept for records
+
+        await userModel.findByIdAndDelete(userId);
+
+        res.json({ success: true, message: "User deleted successfully." });
+
+    } catch (error) {
+        console.error("Error deleting user:", error);
+        res.status(500).json({ success: false, message: "Failed to delete user" });
+    }
+};
+
 // Update exports to include new functions
 export {
     loginUser,
@@ -366,4 +522,8 @@ export {
     getUserProfile,
     requestPasswordReset,
     resetPassword,
+    getAllUsers,          // <-- Add
+    getUserDetailsAdmin,  // <-- Add
+    toggleBlockUser,      // <-- Add
+    deleteUser            // <-- Add
 };

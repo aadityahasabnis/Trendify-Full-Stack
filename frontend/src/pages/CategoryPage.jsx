@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import { ShopContext } from '../context/ShopContext';
 import ProductGrid from '../components/ProductGrid';
@@ -6,6 +6,7 @@ import axios from 'axios';
 
 const CategoryPage = () => {
     const { categorySlug } = useParams();
+    const { backendUrl } = useContext(ShopContext);
     const [categoryProducts, setCategoryProducts] = useState([]);
     const [categoryName, setCategoryName] = useState('');
     const [loading, setLoading] = useState(true);
@@ -13,7 +14,7 @@ const CategoryPage = () => {
     useEffect(() => {
         const fetchCategoryProducts = async () => {
             try {
-                const response = await axios.get(`/api/categories/${categorySlug}/products`);
+                const response = await axios.get(`${backendUrl}/api/categories/${categorySlug}/products`);
                 if (response.data.success) {
                     setCategoryProducts(response.data.products);
                     setCategoryName(response.data.category.name);
@@ -26,7 +27,7 @@ const CategoryPage = () => {
         };
 
         fetchCategoryProducts();
-    }, [categorySlug]);
+    }, [categorySlug, backendUrl]);
 
     if (loading) {
         return (
