@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Collection from "./pages/Collection";
@@ -22,6 +22,13 @@ import BestsellersPage from "./pages/BestsellersPage";
 import NewReleasesPage from "./pages/NewReleasesPage";
 import MoversShakersPage from "./pages/MoversShakersPage";
 import { Toaster } from 'react-hot-toast';
+import LoadingSpinner from './components/LoadingSpinner';
+
+// Lazy load pages
+const HomeLazy = React.lazy(() => import('./pages/Home'));
+const ProductLazy = React.lazy(() => import('./pages/Product'));
+const LoginLazy = React.lazy(() => import('./pages/Login'));
+const UserProfileLazy = React.lazy(() => import('./pages/UserProfile'));
 
 function App() {
   return (
@@ -39,26 +46,28 @@ function App() {
       />
       <Navbar />
       <main className="flex-grow pt-16">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/collections" element={<Collection />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/product/:productId" element={<Product />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/place-order" element={<PlaceOrder />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/verify" element={<Verify />} />
-          <Route path="/profile" element={<UserProfile />} />
-          <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/category/:categorySlug" element={<CategoryPage />} />
-          <Route path="/category/:categorySlug/:subcategorySlug" element={<SubcategoryPage />} />
-          <Route path="/best-sellers" element={<BestsellersPage />} />
-          <Route path="/new-releases" element={<NewReleasesPage />} />
-          <Route path="/movers-shakers" element={<MoversShakersPage />} />
-          <Route path="/shop" element={<Navigate to="/collections" replace />} />
-        </Routes>
+        <Suspense fallback={<LoadingSpinner />}>
+          <Routes>
+            <Route path="/" element={<HomeLazy />} />
+            <Route path="/collections" element={<Collection />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/product/:productId" element={<ProductLazy />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/login" element={<LoginLazy />} />
+            <Route path="/place-order" element={<PlaceOrder />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/verify" element={<Verify />} />
+            <Route path="/profile" element={<UserProfileLazy />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
+            <Route path="/category/:categorySlug" element={<CategoryPage />} />
+            <Route path="/category/:categorySlug/:subcategorySlug" element={<SubcategoryPage />} />
+            <Route path="/best-sellers" element={<BestsellersPage />} />
+            <Route path="/new-releases" element={<NewReleasesPage />} />
+            <Route path="/movers-shakers" element={<MoversShakersPage />} />
+            <Route path="/shop" element={<Navigate to="/collections" replace />} />
+          </Routes>
+        </Suspense>
       </main>
       <Footer />
       <ToastContainer />

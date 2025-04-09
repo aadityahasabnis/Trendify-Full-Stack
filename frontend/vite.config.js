@@ -10,6 +10,19 @@ export default defineConfig(() => {
       react(),
       tailwindcss()
     ],
-    // base: process.env.VITE_BASE_PATH || '/Trendify' // Ensures fallback
+    // base: process.env.VITE_BASE_PATH || '/Trendify', // Ensures fallback
+    build: {
+      rollupOptions: {
+        external: ['react-icons/fa'],
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              return id.toString().split('node_modules/')[1].split('/')[0].toString();
+            }
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1000, // Adjust the limit as needed
+    }
   }
 })
