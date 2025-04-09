@@ -1,7 +1,8 @@
 import React, { useContext, useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ShopContext } from '../context/ShopContext';
 import RelatedProducts from '../components/RelatedProducts';
+import CustomMagnifier from '../components/CustomMagnifier';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart, FaBolt, FaFacebookF, FaTwitter, FaPinterestP } from 'react-icons/fa';
@@ -12,8 +13,7 @@ import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 import { FacebookShareButton, TwitterShareButton, PinterestShareButton } from 'react-share';
 import { toast } from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
-import CustomMagnifier from '../components/CustomMagnifier';
+
 
 // Breadcrumb Component
 const Breadcrumb = ({ category, name }) => (
@@ -145,6 +145,80 @@ const LiveChatWidget = () => (
 	</div>
 );
 
+// Lightbox Component
+const Lightbox = ({ isOpen, onClose, images, currentIndex, setCurrentIndex }) => {
+	useEffect(() => {
+		const handleKeyDown = (e) => {
+			if (!isOpen) return;
+
+			switch (e.key) {
+				case 'Escape':
+					onClose();
+					break;
+				case 'ArrowLeft':
+					setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+					break;
+				case 'ArrowRight':
+					setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+					break;
+				default:
+					break;
+			}
+		};
+
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	}, [isOpen, images.length, onClose, setCurrentIndex]);
+
+	if (!isOpen) return null;
+
+	return (
+		<div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md bg-opacity-90 flex items-center justify-center">
+			<button
+				onClick={onClose}
+				className="absolute top-4 right-4 text-white hover:text-orange-500"
+				aria-label="Close lightbox"
+			>
+				<svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+				</svg>
+			</button>
+			<button
+				onClick={() => setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))}
+				className="absolute left-4 text-white hover:text-orange-500"
+				aria-label="Previous image"
+			>
+				<IoIosArrowBack className="w-8 h-8" />
+			</button>
+			<button
+				onClick={() => setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))}
+				className="absolute right-4 text-white hover:text-orange-500"
+				aria-label="Next image"
+			>
+				<IoIosArrowForward className="w-8 h-8" />
+			</button>
+			<div className="max-w-4xl w-full h-full flex items-center justify-center p-4">
+				<img
+					src={images[currentIndex]}
+					alt={`Product image ${currentIndex + 1}`}
+					className="max-h-full max-w-full object-contain"
+				/>
+			</div>
+			<div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
+				{images.map((_, index) => (
+					<button
+						key={index}
+						onClick={() => setCurrentIndex(index)}
+						className={`w-2 h-2 rounded-full transition-colors ${index === currentIndex ? 'bg-orange-500' : 'bg-white/50 hover:bg-white/75'
+							}`}
+						aria-label={`Go to image ${index + 1}`}
+					/>
+				))}
+			</div>
+		</div>
+	);
+};
+
 const Product = () => {
 	const { productId } = useParams();
 	const { products, currency, addToCart, backendUrl, token } = useContext(ShopContext);
@@ -163,6 +237,7 @@ const Product = () => {
 	const [editingReview, setEditingReview] = useState(null);
 	const [showStickyAdd, setShowStickyAdd] = useState(false);
 	const addToCartRef = useRef(null);
+	const productContentRef = useRef(null);
 
 	// New state variables
 	const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -412,7 +487,7 @@ const Product = () => {
 	}
 
 	return productData ? (
-		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" ref={productContentRef}>
 			{/* Breadcrumb */}
 			<Breadcrumb category={productData.category} name={productData.name} />
 
@@ -441,11 +516,13 @@ const Product = () => {
 								}}
 								className={`relative rounded-md overflow-hidden transition-all duration-200 transform hover:scale-105 ${image === img ? 'ring-2 ring-orange-500' : ''
 									}`}
+								onMouseEnter={() => setImage(img)}
 							>
 								<img
 									src={img}
 									alt={`Product ${index + 1}`}
 									className="w-full h-full object-center object-cover"
+									loading="lazy"
 								/>
 							</button>
 						))}
@@ -704,7 +781,7 @@ const Product = () => {
 							<div className="space-y-6">
 								{/* Review Form */}
 								{userId && (
-									<div className="bg-gray-50 p-4 rounded-lg">
+									<div className="bg-gray-50 p-4 rounded-lg" id="review-form">
 										<h3 className="text-lg font-medium text-gray-900 mb-4">Write a Review</h3>
 										{errorMessage && (
 											<p className="text-red-600 text-sm mb-4">{errorMessage}</p>
@@ -795,6 +872,15 @@ const Product = () => {
 					</Tab.Panels>
 				</Tab.Group>
 			</div>
+
+			{/* Lightbox */}
+			<Lightbox
+				isOpen={isLightboxOpen}
+				onClose={() => setIsLightboxOpen(false)}
+				images={productData.image}
+				currentIndex={lightboxIndex}
+				setCurrentIndex={setLightboxIndex}
+			/>
 
 			{/* Related Products */}
 			<div className="mt-16">

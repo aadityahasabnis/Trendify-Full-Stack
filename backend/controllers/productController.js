@@ -493,4 +493,63 @@ export const getTrendingProducts = async (req, res) => {
     }
 };
 
-export { addProduct, listProduct, removeProduct, singleProduct, updateStock, updateProductStatus, getProductOrders, getProductDetails, decreaseStock }
+const updateProduct = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, price, category, subCategory, sizes, bestseller, stock, isActive } = req.body;
+
+        // Find the product first
+        const product = await productModel.findById(id);
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: "Product not found"
+            });
+        }
+
+        // Handle image uploads if new images are provided
+        let imagesUrl = [...product.image]; // Keep existing images by default
+        if (req.files && Object.keys(req.files).length > 0) {
+            const newImages = await Promise.all(
+                Object.keys(req.files).map(async (key) => {
+                    const result = await cloudinary.uploader.upload(req.files[key][0].path, { resource_type: 'image' });
+                    return result.secure_url;
+                })
+            );
+            imagesUrl = newImages; // Replace all images with new ones
+        }
+
+        // Update product data
+        const updatedProduct = await productModel.findByIdAndUpdate(
+            id,
+            {
+                name,
+                description,
+                price: Number(price),
+                image: imagesUrl,
+                categoryId: category,
+                subcategoryId: subCategory,
+                sizes: JSON.parse(sizes),
+                bestseller: bestseller === "true",
+                stock: Number(stock),
+                isActive: isActive === "true"
+            },
+            { new: true }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Product updated successfully",
+            product: updatedProduct
+        });
+    } catch (error) {
+        console.error("Error updating product:", error);
+        res.status(500).json({
+            success: false,
+            message: "Error updating product",
+            error: error.message
+        });
+    }
+};
+
+export { addProduct, listProduct, removeProduct, singleProduct, updateStock, updateProductStatus, getProductOrders, getProductDetails, decreaseStock, updateProduct }

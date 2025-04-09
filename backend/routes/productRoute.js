@@ -10,7 +10,8 @@ import {
     getProductDetails,
     getBestsellers,
     getNewReleases,
-    getTrendingProducts
+    getTrendingProducts,
+    updateProduct
 } from "../controllers/productController.js";
 import upload from "../middleware/multer.js";
 import { isAdmin, adminAuth } from "../middleware/authMiddleware.js";
@@ -41,6 +42,13 @@ productRouter.post(
     '/remove',
     adminAuth,
     removeProduct
+);
+
+productRouter.put(
+    '/update/:id',
+    adminAuth,
+    upload.fields([{ name: 'image1', maxCount: 1 }, { name: 'image2', maxCount: 1 }, { name: 'image3', maxCount: 1 }, { name: 'image4', maxCount: 1 }]),
+    updateProduct
 );
 
 productRouter.post(

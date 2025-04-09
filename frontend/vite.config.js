@@ -3,17 +3,14 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(() => {
-  // const env = loadEnv(mode, process.cwd(), '')
-
   return {
     plugins: [
       react(),
       tailwindcss()
     ],
-    // base: process.env.VITE_BASE_PATH || '/Trendify', // Ensures fallback
     build: {
       rollupOptions: {
-        external: ['react-icons/fa'],
+        // Remove the external: ['react-icons/fa'] line
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
@@ -22,7 +19,7 @@ export default defineConfig(() => {
           },
         },
       },
-      chunkSizeWarningLimit: 1000, // Adjust the limit as needed
+      chunkSizeWarningLimit: 1000,
     },
     optimizeDeps: {
       include: ['react-icons'],
