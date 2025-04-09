@@ -23,6 +23,9 @@ export default defineConfig(() => {
         },
       },
       chunkSizeWarningLimit: 1000, // Adjust the limit as needed
-    }
+    },
+    optimizeDeps: {
+      include: ['react-image-magnify'],
+    },
   }
 })

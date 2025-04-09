@@ -14,6 +14,7 @@ import 'slick-carousel/slick/slick-theme.css';
 import { FacebookShareButton, TwitterShareButton, PinterestShareButton } from 'react-share';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import CustomMagnifier from '../components/CustomMagnifier';
 
 // Breadcrumb Component
 const Breadcrumb = ({ category, name }) => (
@@ -420,22 +421,7 @@ const Product = () => {
 				{/* Left Column - Product Images */}
 				<div className="space-y-4">
 					<div className="relative aspect-w-1 aspect-h-1 rounded-lg overflow-hidden bg-gray-100">
-						<ReactImageMagnify
-							{...{
-								smallImage: {
-									alt: productData.name,
-									isFluidWidth: true,
-									src: image,
-								},
-								largeImage: {
-									src: image,
-									width: 1200,
-									height: 1200,
-								},
-								enlargedImagePosition: 'over',
-								isHintEnabled: true,
-							}}
-						/>
+						<CustomMagnifier src={image} alt={productData.name} />
 						<button
 							onClick={() => setIsLightboxOpen(true)}
 							className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
