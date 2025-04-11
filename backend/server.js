@@ -14,6 +14,7 @@ import categoryRouter from './routes/categoryRoute.js';
 import adminRouter from './routes/adminRoute.js';
 import inventoryRouter from './routes/inventoryRoute.js';
 import emailRouter from './routes/emailRoute.js';
+import recommendationRoute from './routes/recommendationRoute.js';
 
 // App config
 const app = express();
@@ -77,6 +78,7 @@ app.use('/api', categoryRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/inventory', inventoryRouter);
 app.use('/api/email', emailRouter);
+app.use('/api/recommendations', recommendationRoute);
 
 app.get('/', (req, res) => {
     res.send("API working.");

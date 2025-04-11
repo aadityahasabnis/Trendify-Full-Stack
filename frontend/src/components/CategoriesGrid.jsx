@@ -57,11 +57,16 @@ const CategoriesGrid = () => {
 
     // Fixed prices for categories
     const categoryPrices = {
-        'Men': 499,
+        "Men's Clothing": 499,
         'Women': 699,
         'Kids': 299,
-        'Electronics': 1999,
-        'Home': 899
+        'Electronics': 399,
+        'Sports & Outdoors': 449,
+        'Toys & Games': 129,
+        'Books & Stationery': 59,
+        'Pet Supplies': 89,
+        'Baby & Kids': 139,
+        'Home and Kitchen': 99
     };
 
     const getCategoryPrice = (category) => {

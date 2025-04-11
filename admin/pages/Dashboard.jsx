@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    LineChart, Line, PieChart, Pie, Cell
+} from 'recharts';
+import { backendUrl } from '../src/App.jsx';
 import { toast } from 'react-toastify';
-import { backendUrl } from '../src/App';
 
 const Dashboard = ({ token }) => {
     const [stats, setStats] = useState({
@@ -9,35 +13,66 @@ const Dashboard = ({ token }) => {
         pendingOrders: 0,
         lowStockProducts: 0,
         topProducts: [],
-        totalReviews: 0
+        totalReviews: 0,
+        analytics: {
+            dailySales: [],
+            categorySales: [],
+            userRegistrations: [],
+            productPerformance: []
+        }
     });
     const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        fetchDashboardStats();
-    }, [token]);
+    const [error, setError] = useState(null);
 
     const fetchDashboardStats = async () => {
         try {
+            setLoading(true);
             const response = await axios.get(`${backendUrl}/api/admin/dashboard`, {
                 headers: { token }
             });
 
             if (response.data.success) {
                 setStats(response.data.stats);
+            } else {
+                throw new Error(response.data.message || 'Failed to fetch dashboard data');
             }
         } catch (error) {
-            toast.error('Error fetching dashboard stats');
-            console.error(error);
+            console.error('Error fetching dashboard stats:', error);
+            setError(error.message);
+            toast.error('Failed to load dashboard data');
         } finally {
             setLoading(false);
         }
     };
 
+    useEffect(() => {
+        fetchDashboardStats();
+    }, []);
+
+    // Colors for charts
+    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-screen">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="text-red-500 text-center">
+                    <p className="text-xl font-semibold">Error loading dashboard</p>
+                    <p className="mt-2">{error}</p>
+                    <button
+                        onClick={fetchDashboardStats}
+                        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                        Retry
+                    </button>
+                </div>
             </div>
         );
     }
@@ -51,7 +86,7 @@ const Dashboard = ({ token }) => {
                 {/* Total Sales */}
                 <div className="bg-white p-6 rounded-lg shadow">
                     <h3 className="text-gray-500 text-sm font-medium">Total Sales</h3>
-                    <p className="text-2xl font-semibold mt-2">₹{stats.totalSales}</p>
+                    <p className="text-2xl font-semibold mt-2">₹{stats.totalSales.toLocaleString()}</p>
                 </div>
 
                 {/* Pending Orders */}
@@ -73,8 +108,90 @@ const Dashboard = ({ token }) => {
                 </div>
             </div>
 
-            {/* Top Products */}
-            <div className="bg-white p-6 rounded-lg shadow mb-8">
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                {/* Daily Sales Chart */}
+                <div className="bg-white p-6 rounded-lg shadow">
+                    <h3 className="text-lg font-semibold mb-4">Daily Sales (Last 7 Days)</h3>
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={stats.analytics?.dailySales || []}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="date" />
+                                <YAxis yAxisId="left" />
+                                <YAxis yAxisId="right" orientation="right" />
+                                <Tooltip />
+                                <Legend />
+                                <Line yAxisId="left" type="monotone" dataKey="total" stroke="#8884d8" name="Sales Amount" />
+                                <Line yAxisId="right" type="monotone" dataKey="count" stroke="#82ca9d" name="Order Count" />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Category Sales Chart */}
+                <div className="bg-white p-6 rounded-lg shadow">
+                    <h3 className="text-lg font-semibold mb-4">Category-wise Sales</h3>
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={stats.analytics?.categorySales || []}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="50%"
+                                    outerRadius={100}
+                                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                >
+                                    {(stats.analytics?.categorySales || []).map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* User Registration Trend */}
+                <div className="bg-white p-6 rounded-lg shadow">
+                    <h3 className="text-lg font-semibold mb-4">User Registration Trend (Last 30 Days)</h3>
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={stats.analytics?.userRegistrations || []}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="date" />
+                                <YAxis />
+                                <Tooltip />
+                                <Legend />
+                                <Bar dataKey="count" fill="#8884d8" name="New Users" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Top Products Performance */}
+                <div className="bg-white p-6 rounded-lg shadow">
+                    <h3 className="text-lg font-semibold mb-4">Top Products Performance</h3>
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={stats.analytics?.productPerformance || []}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" />
+                                <YAxis />
+                                <Tooltip />
+                                <Legend />
+                                <Bar dataKey="performance" fill="#82ca9d" name="Revenue" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+
+            {/* Top Products Table */}
+            <div className="bg-white p-6 rounded-lg shadow">
                 <h3 className="text-lg font-semibold mb-4">Top Products</h3>
                 <div className="overflow-x-auto">
                     <table className="min-w-full">
@@ -95,7 +212,7 @@ const Dashboard = ({ token }) => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {stats.topProducts.map((product) => (
+                            {stats.topProducts?.map((product) => (
                                 <tr key={product._id}>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">

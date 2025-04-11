@@ -17,6 +17,7 @@ const BestSeller = () => {
       subtitle="SELLERS"
       products={bestSeller}
       itemsPerPage={5}
+      showStockStatus={true}
     />
   );
 };

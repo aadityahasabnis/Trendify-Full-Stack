@@ -17,6 +17,7 @@ const LatestCollection = () => {
       subtitle="COLLECTIONS"
       products={latestProducts}
       itemsPerPage={5}
+      showStockStatus={true}
     />
   );
 };

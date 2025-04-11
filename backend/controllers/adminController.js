@@ -1,53 +1,194 @@
 import orderModel from '../models/orderModel.js';
 import productModel from '../models/productModel.js';
 import reviewModel from '../models/reviewModel.js';
+import userModel from '../models/userModel.js';
+import { Category } from '../models/categoryModel.js';
 
 export const getDashboardStats = async (req, res) => {
     try {
         // Get total sales
-        const orders = await orderModel.find({ payment: true });
-        const totalSales = orders.reduce((sum, order) => sum + order.amount, 0);
+        const totalSales = await orderModel.aggregate([
+            { $match: { payment: true } },
+            { $group: { _id: null, total: { $sum: "$amount" } } }
+        ]);
 
-        // Get pending orders
+        // Get pending orders count
         const pendingOrders = await orderModel.countDocuments({
-            status: { $in: ['Order Placed', 'Packing', 'Shipped', 'Out for delivery'] }
+            status: { $in: ["Order Placed", "Packing", "Shipped", "Out for delivery"] }
         });
 
-        // Get low stock products
-        const lowStockProducts = await productModel.countDocuments({ stock: { $lt: 10 } });
+        // Get low stock products count
+        const lowStockProducts = await productModel.countDocuments({
+            stock: { $lt: 10 }
+        });
 
-        // Get top products
-        const topProducts = await productModel.find()
-            .sort({ sales: -1 })
-            .limit(5)
-            .select('name image sales stock categoryId')
-            .populate('categoryId', 'name');
-
-        // Get total reviews
+        // Get total reviews count
         const totalReviews = await reviewModel.countDocuments();
 
-        res.json({
-            success: true,
-            stats: {
-                totalSales,
-                pendingOrders,
-                lowStockProducts,
-                topProducts: topProducts.map(product => ({
-                    _id: product._id,
-                    name: product.name,
-                    image: product.image,
-                    sales: product.sales,
-                    stock: product.stock,
-                    category: product.categoryId?.name || 'Uncategorized'
-                })),
-                totalReviews
+        // Get daily sales for last 7 days
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const dailySales = await orderModel.aggregate([
+            {
+                $match: {
+                    payment: true,
+                    date: { $gte: sevenDaysAgo.getTime() }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: { format: "%Y-%m-%d", date: { $toDate: "$date" } }
+                    },
+                    total: { $sum: "$amount" },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // Get category-wise sales
+        const categorySales = await orderModel.aggregate([
+            { $match: { payment: true } },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "items.productId",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
+            { $unwind: "$product" },
+            {
+                $lookup: {
+                    from: "categories",
+                    localField: "product.categoryId",
+                    foreignField: "_id",
+                    as: "category"
+                }
+            },
+            { $unwind: "$category" },
+            {
+                $group: {
+                    _id: "$category.name",
+                    value: { $sum: { $multiply: ["$items.price", "$items.quantity"] } }
+                }
             }
-        });
+        ]);
+
+        // Get user registration trend for last 30 days
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const userRegistrations = await userModel.aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: thirtyDaysAgo }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // Get top products by sales
+        const topProducts = await orderModel.aggregate([
+            { $match: { payment: true } },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "items.productId",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
+            { $unwind: "$product" },
+            {
+                $group: {
+                    _id: "$product._id",
+                    name: { $first: "$product.name" },
+                    image: { $first: "$product.image" },
+                    category: { $first: "$product.category" },
+                    stock: { $first: "$product.stock" },
+                    sales: { $sum: "$items.quantity" }
+                }
+            },
+            { $sort: { sales: -1 } },
+            { $limit: 5 }
+        ]);
+
+        // Get product performance metrics
+        const productPerformance = await orderModel.aggregate([
+            { $match: { payment: true } },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "items.productId",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
+            { $unwind: "$product" },
+            {
+                $group: {
+                    _id: "$product._id",
+                    name: { $first: "$product.name" },
+                    performance: { $sum: { $multiply: ["$items.price", "$items.quantity"] } }
+                }
+            },
+            { $sort: { performance: -1 } },
+            { $limit: 5 }
+        ]);
+
+        // Format the response
+        const stats = {
+            totalSales: totalSales[0]?.total || 0,
+            pendingOrders,
+            lowStockProducts,
+            totalReviews,
+            topProducts: await Promise.all(topProducts.map(async (product) => {
+                const category = await Category.findById(product.category);
+                return {
+                    ...product,
+                    category: category?.name || 'Unknown',
+                    _id: product._id.toString()
+                };
+            })),
+            analytics: {
+                dailySales: dailySales.map(item => ({
+                    date: item._id,
+                    total: item.total,
+                    count: item.count
+                })),
+                categorySales: categorySales.map(item => ({
+                    name: item._id,
+                    value: item.value
+                })),
+                userRegistrations: userRegistrations.map(item => ({
+                    date: item._id,
+                    count: item.count
+                })),
+                productPerformance: productPerformance.map(item => ({
+                    name: item.name,
+                    performance: item.performance
+                }))
+            }
+        };
+
+        res.json({ success: true, stats });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        console.error('Error in getDashboardStats:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
