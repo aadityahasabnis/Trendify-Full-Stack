@@ -4,6 +4,13 @@ import orderModel from '../models/orderModel.js';
 import productModel from '../models/productModel.js';
 import cartModel from '../models/cartModel.js';
 import { Category, Subcategory } from '../models/categoryModel.js';
+import dotenv from 'dotenv';
+
+// Ensure environment variables are loaded
+dotenv.config();
+
+// Get Ollama API URL from environment variables
+const OLLAMA_API_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434';
 
 export const getPersonalizedRecommendations = async (req, res) => {
     try {
@@ -132,7 +139,7 @@ export const getPersonalizedRecommendations = async (req, res) => {
         try {
             // Check if Ollama server is running
             try {
-                await axios.get('http://localhost:11434/api/tags', { timeout: 2000 });
+                await axios.get(`${OLLAMA_API_URL}/api/tags`, { timeout: 2000 });
             } catch (error) {
                 console.error('Ollama server not available:', error.message);
                 throw new Error('Ollama server is not running or not accessible');
@@ -178,7 +185,7 @@ Return only the product IDs in a JSON array.
 Format: {"recommendedProductIds": ["id1", "id2", ...]}`;
 
             // Call Ollama API with enhanced prompt
-            const ollamaResponse = await axios.post('http://localhost:11434/api/generate', {
+            const ollamaResponse = await axios.post(`${OLLAMA_API_URL}/api/generate`, {
                 model: 'llama3',
                 prompt: ollamaPrompt,
                 stream: false
