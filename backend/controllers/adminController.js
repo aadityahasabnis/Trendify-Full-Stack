@@ -153,8 +153,8 @@ export const getDashboardStats = async (req, res) => {
         // Format the response
         const stats = {
             totalSales: totalSales[0]?.total || 0,
-            pendingOrders,
-            lowStockProducts,
+                pendingOrders,
+                lowStockProducts,
             totalReviews,
             topProducts: await Promise.all(topProducts.map(async (product) => {
                 const category = await Category.findById(product.category);

@@ -5,7 +5,7 @@ import ProductItem from './ProductItem';
 
 const RelatedProducts = ({ category, subCategory }) => {
     const { products } = useContext(ShopContext);
-    const [related, setRelated] = useState([]); // Correct state initialization
+    const [related, setRelated] = useState([]);
 
     useEffect(() => {
         if (products.length > 0) {
@@ -13,9 +13,19 @@ const RelatedProducts = ({ category, subCategory }) => {
             productsCopy = productsCopy.filter((item) => category === item.category);
             productsCopy = productsCopy.filter((item) => subCategory === item.subCategory);
 
-            setRelated(productsCopy.slice(0, 5));
+            // Process images before setting state
+            const processedProducts = productsCopy.slice(0, 5).map(item => ({
+                ...item,
+                image: Array.isArray(item.image)
+                    ? item.image[0]
+                    : typeof item.image === 'string'
+                        ? item.image.split(',')[0].trim()
+                        : 'https://via.placeholder.com/300x300?text=No+Image'
+            }));
+
+            setRelated(processedProducts);
         }
-    }, [products, category, subCategory]); // Added category and subCategory to dependency array
+    }, [products, category, subCategory]);
 
     return (
         <div className='my-24'>

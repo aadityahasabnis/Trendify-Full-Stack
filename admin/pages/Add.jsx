@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useDropzone } from 'react-dropzone';
 import { backendUrl } from '../src/App';
 
 const Add = ({ token }) => {
@@ -8,6 +9,8 @@ const Add = ({ token }) => {
 	const [image2, setImage2] = useState(null);
 	const [image3, setImage3] = useState(null);
 	const [image4, setImage4] = useState(null);
+	const [imageLinks, setImageLinks] = useState(['', '', '', '']);
+	const [useLinks, setUseLinks] = useState(false);
 
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
@@ -23,17 +26,86 @@ const Add = ({ token }) => {
 	const [isActive, setIsActive] = useState(true);
 	const [loading, setLoading] = useState(false);
 
+	const onDrop1 = useCallback((acceptedFiles) => {
+		if (acceptedFiles && acceptedFiles[0]) {
+			// Clean up previous file URL if it exists
+			if (image1) {
+				URL.revokeObjectURL(image1);
+			}
+			setImage1(acceptedFiles[0]);
+		}
+	}, [image1]);
+
+	const onDrop2 = useCallback((acceptedFiles) => {
+		if (acceptedFiles && acceptedFiles[0]) {
+			// Clean up previous file URL if it exists
+			if (image2) {
+				URL.revokeObjectURL(image2);
+			}
+			setImage2(acceptedFiles[0]);
+		}
+	}, [image2]);
+
+	const onDrop3 = useCallback((acceptedFiles) => {
+		if (acceptedFiles && acceptedFiles[0]) {
+			// Clean up previous file URL if it exists
+			if (image3) {
+				URL.revokeObjectURL(image3);
+			}
+			setImage3(acceptedFiles[0]);
+		}
+	}, [image3]);
+
+	const onDrop4 = useCallback((acceptedFiles) => {
+		if (acceptedFiles && acceptedFiles[0]) {
+			// Clean up previous file URL if it exists
+			if (image4) {
+				URL.revokeObjectURL(image4);
+			}
+			setImage4(acceptedFiles[0]);
+		}
+	}, [image4]);
+
+	const { getRootProps: getRootProps1, getInputProps: getInputProps1, isDragActive: isDragActive1 } = useDropzone({
+		onDrop: onDrop1,
+		accept: {
+			'image/*': ['.jpeg', '.jpg', '.png', '.webp']
+		},
+		maxFiles: 1
+	});
+
+	const { getRootProps: getRootProps2, getInputProps: getInputProps2, isDragActive: isDragActive2 } = useDropzone({
+		onDrop: onDrop2,
+		accept: {
+			'image/*': ['.jpeg', '.jpg', '.png', '.webp']
+		},
+		maxFiles: 1
+	});
+
+	const { getRootProps: getRootProps3, getInputProps: getInputProps3, isDragActive: isDragActive3 } = useDropzone({
+		onDrop: onDrop3,
+		accept: {
+			'image/*': ['.jpeg', '.jpg', '.png', '.webp']
+		},
+		maxFiles: 1
+	});
+
+	const { getRootProps: getRootProps4, getInputProps: getInputProps4, isDragActive: isDragActive4 } = useDropzone({
+		onDrop: onDrop4,
+		accept: {
+			'image/*': ['.jpeg', '.jpg', '.png', '.webp']
+		},
+		maxFiles: 1
+	});
+
 	// Fetch categories and subcategories
 	useEffect(() => {
 		const fetchCategoriesAndSubcategories = async () => {
 			try {
 				const [categoriesRes, subcategoriesRes] = await Promise.all([
-					axios.get(`${backendUrl}/api/categories`),
-					axios.get(`${backendUrl}/api/subcategories`)
+					axios.get(`${backendUrl}/api/categories`, { headers: { token } }),
+					axios.get(`${backendUrl}/api/subcategories`, { headers: { token } })
 				]);
-
-				// console.log('Categories response:', categoriesRes.data);
-				// console.log('Subcategories response:', subcategoriesRes.data);
 
 				if (categoriesRes.data.success) {
 					setCategories(categoriesRes.data.categories);
@@ -51,24 +123,18 @@ const Add = ({ token }) => {
 		};
 
 		fetchCategoriesAndSubcategories();
-	}, []);
+	}, [token]);
 
 	// Filter subcategories based on selected category
 	useEffect(() => {
 		if (categoryId) {
-			// console.log('Selected category ID:', categoryId);
-			// console.log('All subcategories:', subcategories);
-
 			const filtered = subcategories.filter(sub => {
-				// Check if categoryId is an object (populated) or a string
 				if (sub.categoryId && typeof sub.categoryId === 'object') {
 					return sub.categoryId._id === categoryId;
 				}
-				// If it's a string ID
 				return sub.categoryId === categoryId;
 			});
 
-			// console.log('Filtered subcategories:', filtered);
 			setFilteredSubcategories(filtered);
 			if (filtered.length > 0) {
 				setSubcategoryId(filtered[0]._id);
@@ -81,6 +147,17 @@ const Add = ({ token }) => {
 		}
 	}, [categoryId, subcategories]);
 
+	// Add cleanup effect
+	useEffect(() => {
+		return () => {
+			// Clean up all object URLs when component unmounts
+			if (image1) URL.revokeObjectURL(image1);
+			if (image2) URL.revokeObjectURL(image2);
+			if (image3) URL.revokeObjectURL(image3);
+			if (image4) URL.revokeObjectURL(image4);
+		};
+	}, [image1, image2, image3, image4]);
+
 	const handleSizeChange = (sizeValue) => {
 		setSizes((prevSizes) =>
 			prevSizes.includes(sizeValue)
@@ -89,14 +166,26 @@ const Add = ({ token }) => {
 		);
 	};
 
+	const handleImageLinkChange = (index, value) => {
+		const newLinks = [...imageLinks];
+		newLinks[index] = value;
+		setImageLinks(newLinks);
+	};
+
 	const onSubmitHandler = async (e) => {
 		e.preventDefault();
 		setLoading(true);
 
 		try {
-			// Validate at least one image is selected
-			if (!image1 && !image2 && !image3 && !image4) {
+			// Validate at least one image is selected or one link is provided
+			if (!useLinks && !image1 && !image2 && !image3 && !image4) {
 				toast.error("Please upload at least one product image");
+				setLoading(false);
+				return;
+			}
+
+			if (useLinks && imageLinks.every(link => !link)) {
+				toast.error("Please provide at least one image link");
 				setLoading(false);
 				return;
 			}
@@ -112,16 +201,22 @@ const Add = ({ token }) => {
 			formData.append("bestseller", bestseller.toString());
 			formData.append("isActive", isActive.toString());
 			formData.append("date", Date.now());
+			formData.append("useLinks", useLinks.toString());
+			formData.append("imageLinks", JSON.stringify(imageLinks));
 
-			if (image1) formData.append("image1", image1);
-			if (image2) formData.append("image2", image2);
-			if (image3) formData.append("image3", image3);
-			if (image4) formData.append("image4", image4);
-
-			// console.log("Submitting form data with:");
-			// console.log("- Category:", categoryId);
-			// console.log("- SubCategory:", subcategoryId);
-			// console.log("- Images:", image1 ? "Yes" : "No");
+			if (!useLinks) {
+				try {
+					if (image1) formData.append("image1", image1);
+					if (image2) formData.append("image2", image2);
+					if (image3) formData.append("image3", image3);
+					if (image4) formData.append("image4", image4);
+				} catch (error) {
+					console.error("Error appending files to FormData:", error);
+					toast.error("Error processing image files");
+					setLoading(false);
+					return;
+				}
+			}
 
 			const response = await axios.post(`${backendUrl}/api/product/add`, formData, {
 				headers: {
@@ -130,11 +225,9 @@ const Add = ({ token }) => {
 				},
 			});
 
-			// console.log("Server response:", response.data);
-
 			if (response.data.success) {
 				toast.success(response.data.message);
-				// Reset form
+				// Reset form and clean up files
 				setName("");
 				setDescription("");
 				setPrice("");
@@ -142,10 +235,16 @@ const Add = ({ token }) => {
 				setBestseller(false);
 				setIsActive(true);
 				setSizes([]);
+				if (image1) URL.revokeObjectURL(image1);
+				if (image2) URL.revokeObjectURL(image2);
+				if (image3) URL.revokeObjectURL(image3);
+				if (image4) URL.revokeObjectURL(image4);
 				setImage1(null);
 				setImage2(null);
 				setImage3(null);
 				setImage4(null);
+				setImageLinks(['', '', '', '']);
+				setUseLinks(false);
 			} else {
 				toast.error(response.data.message || "Failed to add product");
 			}
@@ -161,92 +260,93 @@ const Add = ({ token }) => {
 		<form onSubmit={onSubmitHandler} className='flex flex-col w-full items-start gap-3'>
 			<div>
 				<p className="font-medium text-gray-700 mb-2">Product Images</p>
-				<div className='flex gap-2 mt-2'>
-					<label htmlFor="image1" className="cursor-pointer">
-						<div className="w-24 h-24 flex items-center justify-center border border-dashed border-gray-400 rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition">
-							{!image1 ? (
-								<span className="material-icons text-gray-400">add_photo_alternate</span>
-							) : (
-								<img className="w-full h-full object-cover" src={URL.createObjectURL(image1)} alt="Product" />
-							)}
-						</div>
+				<div className="mb-4">
+					<label className="flex items-center gap-2 cursor-pointer">
 						<input
-							onChange={(e) => {
-								if (e.target.files && e.target.files[0]) {
-									setImage1(e.target.files[0]);
-								}
-							}}
-							type="file"
-							name="image1"
-							id="image1"
-							hidden
-							accept="image/*"
+							type="checkbox"
+							checked={useLinks}
+							onChange={(e) => setUseLinks(e.target.checked)}
+							className="w-4 h-4 accent-orange-500"
 						/>
-					</label>
-					<label htmlFor="image2" className="cursor-pointer">
-						<div className="w-24 h-24 flex items-center justify-center border border-dashed border-gray-400 rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition">
-							{!image2 ? (
-								<span className="material-icons text-gray-400">add_photo_alternate</span>
-							) : (
-								<img className="w-full h-full object-cover" src={URL.createObjectURL(image2)} alt="Product" />
-							)}
-						</div>
-						<input
-							onChange={(e) => {
-								if (e.target.files && e.target.files[0]) {
-									setImage2(e.target.files[0]);
-								}
-							}}
-							type="file"
-							name="image2"
-							id="image2"
-							hidden
-							accept="image/*"
-						/>
-					</label>
-					<label htmlFor="image3" className="cursor-pointer">
-						<div className="w-24 h-24 flex items-center justify-center border border-dashed border-gray-400 rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition">
-							{!image3 ? (
-								<span className="material-icons text-gray-400">add_photo_alternate</span>
-							) : (
-								<img className="w-full h-full object-cover" src={URL.createObjectURL(image3)} alt="Product" />
-							)}
-						</div>
-						<input
-							onChange={(e) => {
-								if (e.target.files && e.target.files[0]) {
-									setImage3(e.target.files[0]);
-								}
-							}}
-							type="file"
-							name="image3"
-							id="image3"
-							hidden
-							accept="image/*"
-						/>
-					</label>
-					<label htmlFor="image4" className="cursor-pointer">
-						<div className="w-24 h-24 flex items-center justify-center border border-dashed border-gray-400 rounded-lg overflow-hidden bg-gray-50 hover:bg-gray-100 transition">
-							{!image4 ? (
-								<span className="material-icons text-gray-400">add_photo_alternate</span>
-							) : (
-								<img className="w-full h-full object-cover" src={URL.createObjectURL(image4)} alt="Product" />
-							)}
-						</div>
-						<input
-							onChange={(e) => {
-								if (e.target.files && e.target.files[0]) {
-									setImage4(e.target.files[0]);
-								}
-							}}
-							type="file"
-							name="image4"
-							id="image4"
-							hidden
-							accept="image/*"
-						/>
+						<span>Use image links instead of file upload</span>
 					</label>
 				</div>
+
+				{useLinks ? (
+					<div className='grid grid-cols-2 gap-4'>
+						{[0, 1, 2, 3].map((index) => (
+							<div key={index} className="flex flex-col gap-2">
+								<input
+									type="url"
+									value={imageLinks[index]}
+									onChange={(e) => handleImageLinkChange(index, e.target.value)}
+									placeholder={`Image ${index + 1} URL`}
+									className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500"
+								/>
+								{imageLinks[index] && (
+									<img
+										src={imageLinks[index]}
+										alt={`Preview ${index + 1}`}
+										className="w-24 h-24 object-cover rounded-md"
+										onError={(e) => {
+											e.target.src = 'https://via.placeholder.com/100?text=Invalid+URL';
+										}}
+									/>
+								)}
+							</div>
+						))}
+					</div>
+				) : (
+					<div className='grid grid-cols-2 gap-4'>
+						<div {...getRootProps1()} className={`w-full h-32 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-colors ${isDragActive1 ? 'border-orange-500 bg-orange-50' : 'border-gray-300 hover:border-orange-500'}`}>
+							<input {...getInputProps1()} />
+							{image1 ? (
+								<img src={URL.createObjectURL(image1)} alt="Preview" className="w-full h-full object-cover rounded-lg" />
+							) : (
+								<div className="text-center">
+									<span className="material-icons text-gray-400 text-4xl">add_photo_alternate</span>
+									<p className="text-sm text-gray-500 mt-1">Drag & drop or click to upload</p>
+								</div>
+							)}
+						</div>
+
+						<div {...getRootProps2()} className={`w-full h-32 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-colors ${isDragActive2 ? 'border-orange-500 bg-orange-50' : 'border-gray-300 hover:border-orange-500'}`}>
+							<input {...getInputProps2()} />
+							{image2 ? (
+								<img src={URL.createObjectURL(image2)} alt="Preview" className="w-full h-full object-cover rounded-lg" />
+							) : (
+								<div className="text-center">
+									<span className="material-icons text-gray-400 text-4xl">add_photo_alternate</span>
+									<p className="text-sm text-gray-500 mt-1">Drag & drop or click to upload</p>
+								</div>
+							)}
+						</div>
+
+						<div {...getRootProps3()} className={`w-full h-32 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-colors ${isDragActive3 ? 'border-orange-500 bg-orange-50' : 'border-gray-300 hover:border-orange-500'}`}>
+							<input {...getInputProps3()} />
+							{image3 ? (
+								<img src={URL.createObjectURL(image3)} alt="Preview" className="w-full h-full object-cover rounded-lg" />
+							) : (
+								<div className="text-center">
+									<span className="material-icons text-gray-400 text-4xl">add_photo_alternate</span>
+									<p className="text-sm text-gray-500 mt-1">Drag & drop or click to upload</p>
+								</div>
+							)}
+						</div>
+
+						<div {...getRootProps4()} className={`w-full h-32 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-colors ${isDragActive4 ? 'border-orange-500 bg-orange-50' : 'border-gray-300 hover:border-orange-500'}`}>
+							<input {...getInputProps4()} />
+							{image4 ? (
+								<img src={URL.createObjectURL(image4)} alt="Preview" className="w-full h-full object-cover rounded-lg" />
+							) : (
+								<div className="text-center">
+									<span className="material-icons text-gray-400 text-4xl">add_photo_alternate</span>
+									<p className="text-sm text-gray-500 mt-1">Drag & drop or click to upload</p>
+								</div>
+							)}
+						</div>
+					</div>
+				)}
 				<p className="text-xs text-gray-500 mt-1">Upload at least one product image (max 4)</p>
 			</div>
 
@@ -399,7 +499,6 @@ const Add = ({ token }) => {
 					"ADD PRODUCT"
 				)}
 			</button>
-
 		</form>
 	);
 };

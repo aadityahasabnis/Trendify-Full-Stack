@@ -221,7 +221,7 @@ const Lightbox = ({ isOpen, onClose, images, currentIndex, setCurrentIndex }) =>
 
 const Product = () => {
 	const { productId } = useParams();
-	const { products, currency, addToCart, backendUrl, token } = useContext(ShopContext);
+	const { currency, addToCart, backendUrl, token } = useContext(ShopContext);
 	const [productData, setProductData] = useState(null);
 	const [image, setImage] = useState(null);
 	const [size, setSize] = useState('');
@@ -242,11 +242,6 @@ const Product = () => {
 	// New state variables
 	const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState(0);
-	const [activeTab, setActiveTab] = useState('description');
-	const [isZoomed, setIsZoomed] = useState(false);
-
-	// Refs
-	const sliderRef = useRef(null);
 
 	// Decode the token to get the user ID
 	const userId = token ? jwtDecode(token).id : null;
@@ -263,18 +258,6 @@ const Product = () => {
 		window.addEventListener('scroll', handleScroll);
 		return () => window.removeEventListener('scroll', handleScroll);
 	}, []);
-
-	// Slider settings
-	const sliderSettings = {
-		dots: false,
-		infinite: true,
-		speed: 500,
-		slidesToShow: 1,
-		slidesToScroll: 1,
-		arrows: true,
-		prevArrow: <IoIosArrowBack />,
-		nextArrow: <IoIosArrowForward />,
-	};
 
 	// Function to render star ratings
 	const renderStars = (rating) => {
@@ -298,7 +281,6 @@ const Product = () => {
 		return stars;
 	};
 
-	// Fetch reviews and stats
 	const fetchReviews = async () => {
 		try {
 			const [reviewsResponse, statsResponse] = await Promise.all([
@@ -323,40 +305,46 @@ const Product = () => {
 				setTotalReviews(0);
 			}
 		} catch (error) {
-			console.error("Error fetching reviews or stats:", error);
-			// Set default values if there's an error
-			setReviews([]);
-			setAverageRating('0');
-			setTotalReviews(0);
+			if (error.response?.status === 404) {
+				// No reviews found, set default stats
+				setReviews([]);
+				setAverageRating('0');
+				setTotalReviews(0);
+				console.log('No reviews found for this product');
+			} else {
+				console.error("Error fetching reviews or stats:", error);
+				setErrorMessage('Failed to load reviews');
+			}
 		}
 	};
 
-	// Fetch product data
-	const fetchProductData = async () => {
-		setIsLoading(true);
-		let foundProduct = products.find((item) => item._id === productId);
-
-		if (!foundProduct) {
-			try {
-				const response = await axios.post(`${backendUrl}/api/product/single`, { productId });
-				if (response.data.success) {
-					foundProduct = response.data.product;
-				} else {
-					console.warn(response.data.message);
+	const fetchProduct = async () => {
+		try {
+			const response = await axios.post(`${backendUrl}/api/product/single`, { productId });
+			if (response.data.success) {
+				// Handle image format - ensure it's always an array
+				const productData = response.data.product;
+				if (typeof productData.image === 'string') {
+					productData.image = productData.image.split(',').map(url => url.trim());
+				} else if (!Array.isArray(productData.image)) {
+					productData.image = [productData.image];
 				}
-			} catch (error) {
-				console.error("Error fetching product data from backend:", error);
+				setProductData(productData);
+				setImage(productData.image[0]);
+				setErrorMessage('');
+			} else {
+				setErrorMessage('Product not found');
 			}
+		} catch (error) {
+			if (error.response?.status === 404) {
+				setErrorMessage('Product not found');
+			} else {
+				setErrorMessage('Failed to load product');
+				console.error('Error fetching product:', error);
+			}
+		} finally {
+			setIsLoading(false);
 		}
-
-		if (foundProduct && foundProduct.image && foundProduct.image.length > 0) {
-			setProductData(foundProduct);
-			setImage(foundProduct.image[0]);
-		} else {
-			setProductData(null);
-			setImage(null);
-		}
-		setIsLoading(false);
 	};
 
 	// Add or edit a review
@@ -447,20 +435,9 @@ const Product = () => {
 	}, [editingReview]);
 
 	useEffect(() => {
-		fetchProductData();
+		fetchProduct();
 		fetchReviews();
-	}, [productId]);
-
-	// Handle buy now
-	const handleBuyNow = () => {
-		if (size) {
-			addToCart(productId, size);
-			// Navigate to checkout
-			window.location.href = '/checkout';
-		} else {
-			alert('Please select a size');
-		}
-	};
+	}, [productId, backendUrl]);
 
 	const navigate = useNavigate();
 

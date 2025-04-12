@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import { assets } from '../assets/assets';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 const Orders = ({ token }) => {
   // Main data states
@@ -500,72 +500,99 @@ const Orders = ({ token }) => {
     if (!selectedOrder) return;
 
     try {
+      // Initialize jsPDF
       const doc = new jsPDF();
 
-      // Add header
-      doc.setFontSize(20);
-      doc.text("Invoice", 105, 20, { align: "center" });
+      // Add header with logo
+      doc.setFontSize(24);
+      doc.setTextColor(40, 40, 40);
+      doc.text("TRENDIFY", 105, 20, { align: "center" });
+
+      // Add invoice title
+      doc.setFontSize(16);
+      doc.setTextColor(100, 100, 100);
+      doc.text("INVOICE", 105, 30, { align: "center" });
 
       // Add company details
       doc.setFontSize(10);
-      doc.text("Trendify", 20, 30);
-      doc.text("123 Fashion Street", 20, 35);
-      doc.text("Style City, SC 12345", 20, 40);
-      doc.text("support@trendify.com", 20, 45);
+      doc.setTextColor(60, 60, 60);
+      doc.text("Trendify", 20, 45);
+      doc.text("123 Fashion Street", 20, 50);
+      doc.text("Style City, SC 12345", 20, 55);
+      doc.text("support@trendify.com", 20, 60);
 
       // Add invoice details
       doc.setFontSize(10);
-      doc.text(`Invoice #: ${selectedOrder._id}`, 150, 30, { align: "right" });
-      doc.text(`Date: ${new Date(selectedOrder.date).toLocaleDateString()}`, 150, 35, { align: "right" });
-      doc.text(`Payment: ${selectedOrder.payment ? "Paid" : "Pending"}`, 150, 40, { align: "right" });
-      doc.text(`Method: ${selectedOrder.paymentMethod}`, 150, 45, { align: "right" });
+      doc.text(`Invoice #: ${selectedOrder._id}`, 150, 45, { align: "right" });
+      doc.text(`Date: ${new Date(selectedOrder.date).toLocaleDateString()}`, 150, 50, { align: "right" });
+      doc.text(`Payment: ${selectedOrder.payment ? "Paid" : "Pending"}`, 150, 55, { align: "right" });
+      doc.text(`Method: ${selectedOrder.paymentMethod}`, 150, 60, { align: "right" });
 
       // Add customer details
       doc.setFontSize(12);
-      doc.text("Customer:", 20, 60);
+      doc.setTextColor(40, 40, 40);
+      doc.text("Bill To:", 20, 75);
       doc.setFontSize(10);
-      doc.text(`${selectedOrder.address.firstName} ${selectedOrder.address.lastName}`, 20, 67);
-      doc.text(selectedOrder.address.street, 20, 72);
-      doc.text(`${selectedOrder.address.city}, ${selectedOrder.address.state} ${selectedOrder.address.zipcode}`, 20, 77);
-      doc.text(selectedOrder.address.country, 20, 82);
-      doc.text(`Phone: ${selectedOrder.address.phone}`, 20, 87);
+      doc.text(`${selectedOrder.address.firstName} ${selectedOrder.address.lastName}`, 20, 82);
+      doc.text(selectedOrder.address.street, 20, 87);
+      doc.text(`${selectedOrder.address.city}, ${selectedOrder.address.state} ${selectedOrder.address.zipcode}`, 20, 92);
+      doc.text(selectedOrder.address.country, 20, 97);
+      doc.text(`Phone: ${selectedOrder.address.phone}`, 20, 102);
 
-      // Add items table
+      // Calculate subtotal
+      const subtotal = selectedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const shipping = 10; // Fixed shipping cost
+      const total = subtotal + shipping;
+
+      // Prepare table data
       const tableColumn = ["Item", "Quantity", "Size", "Price", "Total"];
-      const tableRows = [];
+      const tableRows = selectedOrder.items.map(item => [
+        item.name,
+        item.quantity,
+        item.size || "-",
+        `${currency} ${item.price.toFixed(2)}`,
+        `${currency} ${(item.price * item.quantity).toFixed(2)}`
+      ]);
 
-      selectedOrder.items.forEach(item => {
-        const itemData = [
-          item.name,
-          item.quantity,
-          item.size || "-",
-          `${currency} ${item.price.toFixed(2)}`,
-          `${currency} ${(item.price * item.quantity).toFixed(2)}`
-        ];
-        tableRows.push(itemData);
-      });
-
-      doc.autoTable({
-        startY: 95,
+      // Add table using autoTable
+      autoTable(doc, {
+        startY: 110,
         head: [tableColumn],
         body: tableRows,
         theme: 'grid',
-        headStyles: { fillColor: [255, 102, 0] },
+        headStyles: {
+          fillColor: [255, 102, 0],
+          textColor: [255, 255, 255],
+          fontSize: 10,
+          fontStyle: 'bold'
+        },
+        bodyStyles: {
+          fontSize: 9,
+          textColor: [40, 40, 40]
+        },
         foot: [
-          ["", "", "", "Subtotal", `${currency} ${selectedOrder.amount.toFixed(2)}`],
-          ["", "", "", "Shipping", `${currency} 0.00`],
-          ["", "", "", "Total", `${currency} ${selectedOrder.amount.toFixed(2)}`]
+          ["", "", "", "Subtotal", `${currency} ${subtotal.toFixed(2)}`],
+          ["", "", "", "Shipping", `${currency} ${shipping.toFixed(2)}`],
+          ["", "", "", "Total", `${currency} ${total.toFixed(2)}`]
         ],
-        footStyles: { fillColor: [240, 240, 240] }
+        footStyles: {
+          fillColor: [240, 240, 240],
+          textColor: [40, 40, 40],
+          fontSize: 10,
+          fontStyle: 'bold'
+        }
       });
 
       // Add footer text
       const finalY = doc.lastAutoTable.finalY + 20;
       doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
       doc.text("Thank you for shopping with Trendify!", 105, finalY, { align: "center" });
+      doc.text("Questions? Contact support@trendify.com", 105, finalY + 5, { align: "center" });
 
-      // Save the PDF
-      doc.save(`Trendify_Invoice_${selectedOrder._id}.pdf`);
+      // Save the PDF with a proper filename
+      const fileName = `Trendify_Invoice_${selectedOrder._id}.pdf`;
+      doc.save(fileName);
       toast.success("Invoice downloaded successfully");
     } catch (error) {
       console.error("Error generating PDF:", error);
@@ -646,13 +673,13 @@ const Orders = ({ token }) => {
       return;
     }
 
-    setIsUpdating(true); // Indicate processing
+    setIsUpdating(true);
 
     try {
       // Create email subject and body with HTML
       const subject = `🧾 Invoice for Your Trendify Order #${orderNumber.substring(orderNumber.length - 8)}`;
 
-      // Generate invoice HTML (Enhanced slightly)
+      // Generate invoice HTML
       const items = selectedOrder.items.map(item => `
         <tr style="vertical-align:top;">
           <td style="padding:10px 8px;border-bottom:1px solid #eee;">
@@ -666,7 +693,7 @@ const Orders = ({ token }) => {
         </tr>
       `).join('');
 
-      // Create HTML email content (Using a slightly cleaner template)
+      // Create HTML email content
       const emailContent = `
         <!DOCTYPE html>
         <html>
@@ -717,43 +744,55 @@ const Orders = ({ token }) => {
         </html>
       `;
 
-      // Send API request to send email (make sure backend endpoint exists)
+      // Send API request to send email
       const response = await axios.post(
-        `${backendUrl}/api/email/send-invoice`, // Ensure this route exists on your backend
+        `${backendUrl}/api/email/send-invoice`,
         {
           email: email,
           subject: subject,
           html: emailContent,
-          orderId: selectedOrder._id
+          orderId: selectedOrder._id,
+          orderNumber: orderNumber,
+          customerName: `${selectedOrder.address.firstName} ${selectedOrder.address.lastName}`,
+          orderDate: new Date(selectedOrder.date).toLocaleDateString(),
+          totalAmount: selectedOrder.amount
         },
         {
-          headers: { token },
-          timeout: 15000 // Increased timeout
+          headers: {
+            token,
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000
         }
       );
 
       if (response.data.success) {
         toast.success("Invoice sent successfully!");
-        // Optionally close the invoice preview modal
-        // setShowInvoice(false);
+        // Add to timeline
+        const timelineEntry = {
+          type: 'note',
+          text: `Invoice sent to ${email}`,
+          timestamp: Date.now(),
+          addedBy: 'System'
+        };
+        setOrderTimeline([timelineEntry, ...orderTimeline]);
       } else {
-        toast.error(response.data.message || "Failed to send invoice via backend.");
+        toast.error(response.data.message || "Failed to send invoice");
       }
 
     } catch (error) {
-      // ... (keep existing robust error handling) ...
       console.error("Error sending invoice:", error);
       if (error.code === 'ECONNABORTED') {
         toast.error("Email request timed out. Please try again.");
       } else if (error.response) {
         toast.error(`Email Server Error: ${error.response.data.message || error.response.status}`);
       } else if (error.request) {
-        toast.error("No response from email server.");
+        toast.error("No response from email server. Please check your connection.");
       } else {
         toast.error(`Failed to send invoice: ${error.message}`);
       }
     } finally {
-      setIsUpdating(false); // Stop loading indicator
+      setIsUpdating(false);
     }
   };
 

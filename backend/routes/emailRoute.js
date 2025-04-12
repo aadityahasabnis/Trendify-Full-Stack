@@ -7,7 +7,16 @@ const router = express.Router();
 // Send invoice email
 router.post('/send-invoice', authUser, async (req, res) => {
     try {
-        const { email, subject, html, orderId } = req.body;
+        const {
+            email,
+            subject,
+            html,
+            orderId,
+            orderNumber,
+            customerName,
+            orderDate,
+            totalAmount
+        } = req.body;
 
         if (!email || !subject || !html) {
             return res.status(400).json({
@@ -29,12 +38,32 @@ router.post('/send-invoice', authUser, async (req, res) => {
             secure: false,
         });
 
+        // Enhanced email template
+        const enhancedHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+                    <h2 style="color: #333; margin-bottom: 20px;">${subject}</h2>
+                    <p style="color: #666; margin-bottom: 10px;">Dear ${customerName},</p>
+                    <p style="color: #666; margin-bottom: 10px;">Thank you for your order! Your invoice details are below:</p>
+                    <div style="background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                        <p style="margin: 5px 0;"><strong>Order Number:</strong> ${orderNumber}</p>
+                        <p style="margin: 5px 0;"><strong>Order Date:</strong> ${orderDate}</p>
+                        <p style="margin: 5px 0;"><strong>Total Amount:</strong> $${totalAmount.toFixed(2)}</p>
+                    </div>
+                    <p style="color: #666; margin-bottom: 10px;">Please find your detailed invoice attached below:</p>
+                    ${html}
+                    <p style="color: #666; margin-top: 20px;">If you have any questions, please contact our support team.</p>
+                    <p style="color: #666; margin-top: 20px;">Best regards,<br>The Trendify Team</p>
+                </div>
+            </div>
+        `;
+
         // Email options
         const mailOptions = {
             from: process.env.EMAIL_USERNAME,
             to: email,
             subject: subject,
-            html: html,
+            html: enhancedHtml,
         };
 
         // Send email
@@ -48,7 +77,8 @@ router.post('/send-invoice', authUser, async (req, res) => {
         console.error('Error sending invoice email:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Error sending invoice email'
+            message: 'Failed to send invoice email',
+            error: error.message
         });
     }
 });

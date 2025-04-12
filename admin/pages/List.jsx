@@ -446,7 +446,9 @@ const List = ({ token }) => {
 													<img className={`h-8 w-8 sm:h-10 sm:w-10 rounded-md object-cover border ${!item.isActive ? 'grayscale' : ''}`} src={item.image?.[0]} alt={item.name} />
 												</div>
 												<div className="ml-3 sm:ml-4">
-													<div className={`text-sm font-medium ${!item.isActive ? 'text-gray-500' : 'text-gray-900'}`}>{item.name}</div>
+													<div className={`text-sm font-medium ${!item.isActive ? 'text-gray-500' : 'text-gray-900'}`}>
+														{item.name.length > 25 ? `${item.name.substring(0, 25)}...` : item.name}
+													</div>
 													<div className="text-xs text-gray-500 hidden sm:block">{item.sizes?.join(", ") || "No sizes"}</div>
 
 													{/* Mobile-only price and stock */}
@@ -1014,7 +1016,9 @@ const List = ({ token }) => {
 								className="w-16 h-16 rounded-md object-cover"
 							/>
 							<div>
-								<p className="font-medium text-gray-900">{productToDelete.name}</p>
+								<p className="font-medium text-gray-900">
+									{productToDelete.name.length > 30 ? `${productToDelete.name.substring(0, 30)}...` : productToDelete.name}
+								</p>
 								<p className="text-sm text-gray-500 mt-1">ID: {productToDelete._id}</p>
 								<div className="flex items-center mt-2">
 									{productToDelete.isActive ? (

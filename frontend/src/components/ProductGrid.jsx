@@ -205,6 +205,18 @@ const ProductGrid = ({ title, products: initialProducts, showFilters = true }) =
         }
     }, [sortType, isLoading]);
 
+    const getImageUrl = (image) => {
+        if (!image) return '';
+        if (Array.isArray(image)) {
+            return image[0];
+        }
+        if (typeof image === 'string') {
+            const urls = image.split(',');
+            return urls[0].trim();
+        }
+        return '';
+    };
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -321,7 +333,7 @@ const ProductGrid = ({ title, products: initialProducts, showFilters = true }) =
                             <ProductItem
                                 key={index}
                                 id={item._id}
-                                image={item.image}
+                                image={getImageUrl(item.image)}
                                 name={item.name}
                                 price={item.price}
                                 stock={item.stock}

@@ -15,13 +15,15 @@ export const getPersonalizedRecommendations = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // Get user's previous orders
+        // Get user's previous orders with more details
         const orders = await orderModel.find({ userId })
             .sort({ createdAt: -1 })
-            .limit(10);
+            .limit(10)
+            .populate('items.productId', 'name description categoryId subcategoryId');
 
-        // Get user's current cart
-        const cart = await cartModel.findOne({ userId });
+        // Get user's current cart with product details
+        const cart = await cartModel.findOne({ userId })
+            .populate('items.productId', 'name description categoryId subcategoryId');
         const cartItems = cart ? cart.items : {};
 
         // Get all active products with detailed information
@@ -46,17 +48,55 @@ export const getPersonalizedRecommendations = async (req, res) => {
             });
         }
 
+        // Analyze user preferences
+        const userPreferences = {
+            categories: new Set(),
+            subcategories: new Set(),
+            priceRange: { min: Infinity, max: 0 },
+            frequentlyPurchased: new Set(),
+            recentlyViewed: new Set()
+        };
+
+        // Analyze orders
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                const product = item.productId;
+                if (product) {
+                    userPreferences.categories.add(product.categoryId._id.toString());
+                    userPreferences.subcategories.add(product.subcategoryId._id.toString());
+                    userPreferences.frequentlyPurchased.add(product._id.toString());
+                    userPreferences.priceRange.min = Math.min(userPreferences.priceRange.min, product.price);
+                    userPreferences.priceRange.max = Math.max(userPreferences.priceRange.max, product.price);
+                }
+            });
+        });
+
+        // Analyze cart
+        Object.entries(cartItems).forEach(([productId, sizes]) => {
+            userPreferences.recentlyViewed.add(productId);
+        });
+
         // Prepare data for recommendation engine
         const userData = {
             name: user.name,
             email: user.email,
+            preferences: {
+                categories: Array.from(userPreferences.categories),
+                subcategories: Array.from(userPreferences.subcategories),
+                priceRange: userPreferences.priceRange,
+                frequentlyPurchased: Array.from(userPreferences.frequentlyPurchased),
+                recentlyViewed: Array.from(userPreferences.recentlyViewed)
+            },
             previousOrders: orders.map(order => ({
                 items: order.items.map(item => ({
-                    productId: item.productId,
-                    name: item.name,
+                    productId: item.productId._id.toString(),
+                    name: item.productId.name,
+                    description: item.productId.description,
                     price: item.price,
                     quantity: item.quantity,
-                    size: item.size
+                    size: item.size,
+                    category: item.productId.categoryId.name,
+                    subcategory: item.productId.subcategoryId.name
                 })),
                 date: order.createdAt
             })),
@@ -98,19 +138,52 @@ export const getPersonalizedRecommendations = async (req, res) => {
                 throw new Error('Ollama server is not running or not accessible');
             }
 
-            // Call Ollama API with enhanced prompt and longer timeout
+            // Enhanced Ollama prompt
+            const ollamaPrompt = `You are an expert e-commerce recommendation system. Analyze the following user data and recommend 10 products that the user would be most interested in.
+
+User Profile:
+- Name: ${userData.name}
+- Email: ${userData.email}
+
+User Preferences:
+- Favorite Categories: ${userData.preferences.categories.join(', ')}
+- Favorite Subcategories: ${userData.preferences.subcategories.join(', ')}
+- Price Range: $${userData.preferences.priceRange.min} - $${userData.preferences.priceRange.max}
+- Frequently Purchased Items: ${userData.preferences.frequentlyPurchased.length} items
+- Recently Viewed Items: ${userData.preferences.recentlyViewed.length} items
+
+Order History:
+${userData.previousOrders.map(order => `
+Order Date: ${new Date(order.date).toLocaleDateString()}
+Items: ${order.items.map(item => `${item.name} (${item.quantity}x)`).join(', ')}
+`).join('\n')}
+
+Current Cart:
+${userData.currentCart.map(item => `Product ID: ${item.productId}`).join('\n')}
+
+Available Products:
+${userData.allProducts.length} products in total
+
+Please analyze this data and recommend 10 products that:
+1. Match the user's preferred categories and subcategories
+2. Fall within their price range
+3. Complement their previous purchases
+4. Are similar to items in their cart
+5. Consider product descriptions and features
+6. Include some bestsellers and high-selling items
+7. Ensure variety in recommendations
+8. Consider stock availability
+
+Return only the product IDs in a JSON array.
+Format: {"recommendedProductIds": ["id1", "id2", ...]}`;
+
+            // Call Ollama API with enhanced prompt
             const ollamaResponse = await axios.post('http://localhost:11434/api/generate', {
                 model: 'llama3',
-                prompt: `Based on the following user data, recommend 10 products that the user might be interested in. 
-                Consider their previous orders, current cart items, and product categories/subcategories.
-                Return only the product IDs in a JSON array.
-                
-                User Data: ${JSON.stringify(userData)}
-                
-                Return format: {"recommendedProductIds": ["id1", "id2", ...]}`,
+                prompt: ollamaPrompt,
                 stream: false
             }, {
-                timeout: 10000 // Increased timeout to 10 seconds
+                timeout: 10000
             });
 
             // Parse the response
