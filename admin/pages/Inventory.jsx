@@ -453,9 +453,7 @@ const Inventory = ({ token }) => {
                                                     <img className="h-10 w-10 rounded-md object-cover" src={product.image[0]} alt="" />
                                                 </div>
                                                 <div className="ml-4">
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {product.name.length > 25 ? `${product.name.substring(0, 25)}...` : product.name}
-                                                    </div>
+                                                    <div className="text-sm font-medium text-gray-900">{product.name}</div>
                                                     <div className="text-xs text-gray-500">{product.categoryName || product.categoryId}</div>
                                                 </div>
                                             </div>
@@ -549,9 +547,7 @@ const Inventory = ({ token }) => {
                                     className="w-16 h-16 rounded-md object-cover"
                                 />
                                 <div>
-                                    <p className="font-medium">
-                                        {selectedProduct.name.length > 30 ? `${selectedProduct.name.substring(0, 30)}...` : selectedProduct.name}
-                                    </p>
+                                    <p className="font-medium">{selectedProduct.name}</p>
                                     <p className="text-sm text-gray-500">{selectedProduct.categoryName || selectedProduct.categoryId}</p>
                                     <p className={`text-sm font-medium ${selectedProduct.stock > 5 ? 'text-green-600' :
                                         selectedProduct.stock > 0 ? 'text-yellow-600' :
@@ -635,9 +631,7 @@ const Inventory = ({ token }) => {
                                     />
                                 )}
                                 <div>
-                                    <p className="font-medium text-gray-900">
-                                        {historyProduct.name.length > 30 ? `${historyProduct.name.substring(0, 30)}...` : historyProduct.name}
-                                    </p>
+                                    <p className="font-medium text-gray-900">{historyProduct.name}</p>
                                     <p className="text-sm text-gray-500 mt-1">{historyProduct.categoryName || historyProduct.categoryId}</p>
                                     <div className="flex items-center mt-2">
                                         <div className={`flex items-center px-2 py-1 rounded-full text-xs ${historyProduct.stock > 5

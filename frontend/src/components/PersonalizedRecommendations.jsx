@@ -10,7 +10,6 @@ const PersonalizedRecommendations = () => {
     const [recommendedProducts, setRecommendedProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [message, setMessage] = useState(''); // Track recommendation source message
 
     useEffect(() => {
         const fetchRecommendations = async () => {
@@ -37,12 +36,6 @@ const PersonalizedRecommendations = () => {
                         stockStatus: getStockStatus(product)
                     }));
                     setRecommendedProducts(productsWithStockStatus);
-
-                    // Store message about recommendation source (for debugging/info)
-                    if (data.message) {
-                        setMessage(data.message);
-                        console.info('Recommendation info:', data.message);
-                    }
                 } else {
                     setError('Failed to load recommendations');
                     toast.error('Failed to load recommendations');
@@ -110,16 +103,13 @@ const PersonalizedRecommendations = () => {
         return null;
     }
 
-    // Different subtitle based on whether using AI or random recommendations
-    const subtitle = message.includes('random') ? "FOR YOU" : "POWERED BY AI";
-
     return (
         <ProductCarousel
             title="PERSONALIZED"
-            subtitle={subtitle}
+            subtitle="RECOMMENDATIONS"
             products={recommendedProducts}
             itemsPerPage={5}
-            showStockStatus={true}
+        // showStockStatus={true}
         />
     );
 }

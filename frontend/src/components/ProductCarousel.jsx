@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, memo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { ShopContext } from '../context/ShopContext';
@@ -23,14 +23,14 @@ const ProductCard = memo(({ product, onClick, showStockStatus }) => {
 
     return (
         <div
-            className="relative cursor-pointer overflow-hidden rounded-lg bg-white shadow-sm hover:shadow-lg transition-all duration-300 h-full flex flex-col"
+            className="relative group cursor-pointer"
             onClick={() => onClick(product._id)}
         >
-            <div className="relative overflow-hidden flex-grow">
+            <div className="relative overflow-hidden rounded-lg">
                 <img
                     src={imageUrl}
                     alt={product.name}
-                    className="w-full h-85 object-cover transition-transform duration-300 hover:scale-105"
+                    className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-105"
                     loading="lazy"
                     onError={(e) => {
                         e.target.src = 'https://via.placeholder.com/300x400?text=No+Image';
@@ -47,73 +47,45 @@ const ProductCard = memo(({ product, onClick, showStockStatus }) => {
                     </div>
                 )}
                 {product.bestseller && (
-                    <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-white text-2xl font-medium">
+                    <div className="absolute top-1 left-2 px-2 py-1 rounded-full text-xl font-medium text-white">
                         🔥
                     </div>
                 )}
             </div>
-            <div className="p-5">
-                <h3 className="text-base font-semibold text-gray-800 truncate font-serif tracking-wide">{product.name}</h3>
-                <p className="text-base text-gray-600 mt-2 font-light">₹{product.price}</p>
+            <div className="mt-2">
+                <h3 className="text-sm font-medium text-gray-900 truncate">{product.name}</h3>
+                <p className="text-sm text-gray-500">₹{product.price}</p>
             </div>
         </div>
     );
 });
 
-const ProductCarousel = ({ title, subtitle, products, itemsPerPage = 5, showStockStatus = false }) => {
-    const [currentPage, setCurrentPage] = useState(0);
+const ProductCarousel = ({ title, subtitle, products, showStockStatus = false }) => {
+    const [startIndex, setStartIndex] = useState(0);
     const [isAnimating, setIsAnimating] = useState(false);
     const navigate = useNavigate();
 
-    // Fixed number of pages - always 3
-    const numPages = 3;
-    const totalProducts = Math.min(products.length, numPages * itemsPerPage);
+    // Calculate total pages based on 5 items per page
+    const totalPages = Math.ceil(products.length / 5);
+    const currentPage = Math.floor(startIndex / 5);
 
-    // Calculate optimal items per row based on screen width
-    const [itemsPerRow, setItemsPerRow] = useState(5);
-
-    useEffect(() => {
-        const handleResize = () => {
-            const width = window.innerWidth;
-            if (width >= 1536) { // 2xl
-                setItemsPerRow(5);
-            } else if (width >= 1280) { // xl
-                setItemsPerRow(5);
-            } else if (width >= 1024) { // lg
-                setItemsPerRow(5);
-            } else if (width >= 768) { // md
-                setItemsPerRow(4);
-            } else if (width >= 640) { // sm
-                setItemsPerRow(3);
-            } else {
-                setItemsPerRow(2);
-            }
-        };
-
-        handleResize();
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
-    // Get the visible products for the current page
     const visibleProducts = useMemo(() => {
-        const startIndex = currentPage * itemsPerPage;
-        return products.slice(startIndex, Math.min(startIndex + itemsPerPage, totalProducts));
-    }, [products, currentPage, itemsPerPage, totalProducts]);
+        return products.slice(startIndex, startIndex + 5);
+    }, [products, startIndex]);
 
     const handlePrev = useCallback(() => {
-        if (isAnimating || currentPage === 0) return;
+        if (isAnimating || startIndex === 0) return;
         setIsAnimating(true);
-        setCurrentPage(prev => prev - 1);
+        setStartIndex(prev => Math.max(0, prev - 5));
         setTimeout(() => setIsAnimating(false), 300);
-    }, [currentPage, isAnimating]);
+    }, [startIndex, isAnimating]);
 
     const handleNext = useCallback(() => {
-        if (isAnimating || currentPage >= numPages - 1 || currentPage * itemsPerPage + itemsPerPage >= totalProducts) return;
+        if (isAnimating || startIndex + 5 >= products.length) return;
         setIsAnimating(true);
-        setCurrentPage(prev => prev + 1);
+        setStartIndex(prev => Math.min(products.length - 5, prev + 5));
         setTimeout(() => setIsAnimating(false), 300);
-    }, [currentPage, isAnimating, itemsPerPage, numPages, totalProducts]);
+    }, [products.length, startIndex, isAnimating]);
 
     const handleProductClick = useCallback((productId) => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -130,20 +102,6 @@ const ProductCarousel = ({ title, subtitle, products, itemsPerPage = 5, showStoc
             />
         )), [visibleProducts, handleProductClick, showStockStatus]);
 
-    // Determine grid columns based on items per row
-    const gridColsClass = useMemo(() => {
-        return `grid-cols-${itemsPerRow}`;
-    }, [itemsPerRow]);
-
-    // Calculate transform for swiping transition
-    const transformStyle = useMemo(() => {
-        if (!isAnimating) return {};
-        return {
-            transform: `translateX(${currentPage * -100}%)`,
-            transition: 'transform 300ms ease-out'
-        };
-    }, [currentPage, isAnimating]);
-
     return (
         <div className="w-full bg-white py-8">
             <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -153,21 +111,21 @@ const ProductCarousel = ({ title, subtitle, products, itemsPerPage = 5, showStoc
                         {subtitle && (
                             <>
                                 <span className="text-lg text-gray-600 font-light">|</span>
-                                <p className="text-lg text-gray-600 font-light italic">{subtitle}</p>
+                                <p className="text-lg text-gray-600">{subtitle}</p>
                             </>
                         )}
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <div className="flex space-x-2">
-                            {[...Array(Math.min(numPages, Math.ceil(totalProducts / itemsPerPage)))].map((_, i) => (
+                        <div className="flex space-x-1">
+                            {[...Array(totalPages)].map((_, i) => (
                                 <button
                                     key={i}
-                                    className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${i === currentPage ? 'bg-gray-800 scale-110' : 'bg-gray-300 hover:bg-gray-400'}`}
+                                    className={`w-2 h-2 rounded-full ${i === currentPage ? 'bg-gray-900' : 'bg-gray-300'}`}
                                     onClick={() => {
                                         if (isAnimating) return;
                                         setIsAnimating(true);
-                                        setCurrentPage(i);
+                                        setStartIndex(i * 5);
                                         setTimeout(() => setIsAnimating(false), 300);
                                     }}
                                     aria-label={`Go to page ${i + 1}`}
@@ -177,12 +135,12 @@ const ProductCarousel = ({ title, subtitle, products, itemsPerPage = 5, showStoc
                     </div>
                 </div>
 
-                <div className="relative group">
-                    {currentPage > 0 && (
+                <div className="relative">
+                    {startIndex > 0 && (
                         <button
                             onClick={handlePrev}
                             disabled={isAnimating}
-                            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-600 hover:text-gray-900 opacity-0 group-hover:opacity-100 group-hover:-translate-x-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-600 hover:text-gray-900 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label="Previous page"
                         >
                             <FaChevronLeft className="w-5 h-5" />
@@ -190,16 +148,21 @@ const ProductCarousel = ({ title, subtitle, products, itemsPerPage = 5, showStoc
                     )}
 
                     <div className="overflow-hidden">
-                        <div className={`grid ${gridColsClass} gap-4 md:gap-6`} style={transformStyle}>
+                        <div
+                            className={`grid grid-cols-5 gap-6 transition-transform duration-300 ease-in-out`}
+                            style={{
+                                transform: `translateX(${isAnimating ? '0' : '0'})`
+                            }}
+                        >
                             {productItems}
                         </div>
                     </div>
 
-                    {currentPage < Math.min(numPages - 1, Math.ceil(totalProducts / itemsPerPage) - 1) && (
+                    {startIndex + 5 < products.length && (
                         <button
                             onClick={handleNext}
                             disabled={isAnimating}
-                            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-600 hover:text-gray-900 opacity-0 group-hover:opacity-100 group-hover:translate-x-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-600 hover:text-gray-900 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label="Next page"
                         >
                             <FaChevronRight className="w-5 h-5" />
