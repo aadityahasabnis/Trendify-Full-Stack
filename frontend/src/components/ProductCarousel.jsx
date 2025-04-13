@@ -126,11 +126,11 @@ const ProductCarousel = ({ title, subtitle, products, showStockStatus = false })
             <div className="w-full px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-3">
-                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 font-serif tracking-wide">{title}</h2>
+                        <h2 className="text-md sm:text-2xl font-bold text-gray-900 font-serif tracking-wide">{title}</h2>
                         {subtitle && (
                             <>
-                                <span className="text-lg text-gray-600 font-light hidden sm:block">|</span>
-                                <p className="text-lg text-gray-600 hidden sm:block">{subtitle}</p>
+                                <span className="text-lg text-gray-600 font-light sm:block">|</span>
+                                <p className="text-md text-gray-600 sm:block">{subtitle}</p>
                             </>
                         )}
                     </div>

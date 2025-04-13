@@ -12,11 +12,14 @@
       "dest": "server.js",
       "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       "headers": {
-        "Access-Control-Allow-Origin": "https://trendify-frontend-jrmmlhvbh-aaditya-hasabnis.vercel.app",
+        "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, token, x-requested-with",
         "Access-Control-Allow-Credentials": "true"
       }
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
 }
