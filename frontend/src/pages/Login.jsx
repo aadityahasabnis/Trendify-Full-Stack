@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { ShopContext } from '../context/ShopContext'
 import axios from 'axios';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // Input Field Component
@@ -136,6 +136,7 @@ const Login = () => {
 						setToken(response.data.token)
 						localStorage.setItem('token', response.data.token)
 						toast.success('Logged in successfully!');
+						navigate('/');
 					}
 					else {
 						toast.error(response.data.message);

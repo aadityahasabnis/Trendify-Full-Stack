@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { backendUrl, currency } from '../src/App';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 
 const Inventory = ({ token }) => {
     const [products, setProducts] = useState([]);
@@ -29,9 +29,12 @@ const Inventory = ({ token }) => {
     });
 
     const fetchProducts = async () => {
-        setLoading(true);
         try {
-            const response = await axios.get(`${backendUrl}/api/product/list`);
+            setLoading(true);
+            const response = await axios.get(`${backendUrl}/api/product/list`, {
+                headers: { token }
+            });
+
             if (response.data.success) {
                 // Fetch product details including category names
                 const productDetails = await Promise.all(
@@ -64,11 +67,11 @@ const Inventory = ({ token }) => {
                 );
                 setSummary(summary);
             } else {
-                toast.error(response.data.message);
+                toast.error('Failed to fetch products');
             }
         } catch (error) {
-            console.error(error);
-            toast.error("Error fetching products");
+            console.error('Error fetching products:', error);
+            toast.error('Error loading inventory data');
         } finally {
             setLoading(false);
         }
@@ -139,62 +142,26 @@ const Inventory = ({ token }) => {
 
     // Function to update stock with tracking
     const updateStock = async () => {
-        if (newStock === '' || isNaN(Number(newStock)) || Number(newStock) < 0) {
-            toast.error("Please enter a valid stock quantity");
-            return;
-        }
-
-        setUpdating(true);
         try {
-            const response = await axios.post(
-                `${backendUrl}/api/product/update-stock`,
-                {
-                    productId: selectedProduct._id,
-                    stock: Number(newStock),
-                    previousStock: selectedProduct.stock, // Add for tracking
-                    note: "Manual stock update" // Add a note for the log
-                },
+            setLoading(true);
+            const response = await axios.put(
+                `${backendUrl}/api/product/stock/${selectedProduct._id}`,
+                { stock: newStock },
                 { headers: { token } }
             );
 
             if (response.data.success) {
-                toast.success("Stock updated successfully");
+                toast.success('Stock updated successfully');
                 setShowUpdateModal(false);
-
-                // Update the product in the local state
-                const updatedProducts = products.map(product =>
-                    product._id === selectedProduct._id
-                        ? { ...product, stock: Number(newStock) }
-                        : product
-                );
-                setProducts(updatedProducts);
-
-                // Update summary
-                const updatedSummary = { ...summary };
-
-                // Remove from previous category
-                const oldStock = selectedProduct.stock || 0;
-                if (oldStock === 0) updatedSummary.outOfStock--;
-                else if (oldStock <= 5) updatedSummary.lowStock--;
-                else updatedSummary.inStock--;
-
-                // Add to new category
-                if (Number(newStock) === 0) updatedSummary.outOfStock++;
-                else if (Number(newStock) <= 5) updatedSummary.lowStock++;
-                else updatedSummary.inStock++;
-
-                setSummary(updatedSummary);
-
-                // Get the latest product data from backend to ensure everything is sync
                 fetchProducts();
             } else {
-                toast.error(response.data.message || "Failed to update stock");
+                toast.error(response.data.message || 'Failed to update stock');
             }
         } catch (error) {
-            console.error(error);
-            toast.error("Error updating stock");
+            console.error('Error updating stock:', error);
+            toast.error('Error updating stock');
         } finally {
-            setUpdating(false);
+            setLoading(false);
         }
     };
 

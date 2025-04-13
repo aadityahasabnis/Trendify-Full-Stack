@@ -229,10 +229,10 @@ const AllSidebar = ({ isOpen, onClose }) => {
 
     return (
         <>
-            {/* Backdrop */}
+            {/* Backdrop - Only visible on mobile */}
             {isOpen && (
                 <div
-                    className="fixed inset-0 bg-black/10 z-30 transition-opacity duration-300 ease-in-out"
+                    className="fixed inset-0 bg-black/10 z-30 transition-opacity duration-300 ease-in-out md:hidden"
                     onClick={onClose}
                 />
             )}
@@ -240,7 +240,7 @@ const AllSidebar = ({ isOpen, onClose }) => {
             {/* Sidebar */}
             <div
                 className={`fixed top-16 left-0 h-[calc(100vh-64px)] w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-40 ${isOpen ? "translate-x-0" : "-translate-x-full"
-                    }`}
+                    } hidden md:block md:translate-x-0 md:static md:h-screen md:top-0 md:z-0 md:w-64`}
             >
                 {/* Header */}
                 <div className="bg-gradient-to-r from-orange-400 to-orange-500 p-4">
@@ -249,23 +249,23 @@ const AllSidebar = ({ isOpen, onClose }) => {
                             <>
                                 <button
                                     onClick={handleProfileClick}
-                                    className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-md hover:bg-orange-50 transition-colors"
+                                    className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white flex items-center justify-center shadow-md hover:bg-orange-50 transition-colors"
                                 >
-                                    <span className="material-icons text-orange-500 text-2xl">person</span>
+                                    <span className="material-icons text-orange-500 text-xl md:text-2xl">person</span>
                                 </button>
-                                <div>
+                                <div className="hidden md:block">
                                     <p className="text-white text-lg font-medium">Hello, {userData?.name || 'User'}</p>
                                     <p className="text-white text-sm opacity-90">{userData?.email}</p>
                                 </div>
                             </>
                         ) : (
                             <>
-                                <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-md">
-                                    <span className="material-icons text-orange-500 text-2xl">account_circle</span>
+                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white flex items-center justify-center shadow-md">
+                                    <span className="material-icons text-orange-500 text-xl md:text-2xl">account_circle</span>
                                 </div>
                                 <Link
                                     to="/login"
-                                    className="text-white text-lg hover:text-orange-100 transition-colors"
+                                    className="text-white text-lg hover:text-orange-100 transition-colors hidden md:block"
                                     onClick={onClose}
                                 >
                                     Hello, sign in

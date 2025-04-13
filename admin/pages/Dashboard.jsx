@@ -5,7 +5,7 @@ import {
     LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import { backendUrl } from '../src/App.jsx';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 
 const Dashboard = ({ token }) => {
     const [stats, setStats] = useState({

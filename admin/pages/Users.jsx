@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { backendUrl } from '../src/App'; // Corrected path, removed unused currency
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 import UserDetailsModal from '../components/UserDetailsModal'; // Import the modal
 
 const Users = ({ token }) => {

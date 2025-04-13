@@ -3,7 +3,7 @@ import axios from 'axios';
 import { ShopContext } from '../context/ShopContext';
 
 import { useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 
 const ResetPassword = () => {
     const { backendUrl } = useContext(ShopContext);
@@ -21,7 +21,7 @@ const ResetPassword = () => {
         }
 
         try {
-            const response = await axios.post(backendUrl+'/api/user/reset-password/confirm', {
+            const response = await axios.post(backendUrl + '/api/user/reset-password/confirm', {
                 token,
                 newPassword
             });

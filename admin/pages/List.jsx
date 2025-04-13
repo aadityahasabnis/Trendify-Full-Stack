@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { backendUrl, currency } from '../src/App';
 import axios from 'axios';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 
 const List = ({ token }) => {
 	const [list, setList] = useState([]);
@@ -165,34 +165,22 @@ const List = ({ token }) => {
 	const removeProduct = async () => {
 		setDeleteLoading(true);
 		try {
-			const response = await axios.post(
-				`${backendUrl}/api/product/remove`,
-				{ id: productToDelete._id },
+			const response = await axios.delete(
+				`${backendUrl}/api/product/${selectedProduct._id}`,
 				{ headers: { token } }
 			);
 
 			if (response.data.success) {
-				toast.success(response.data.message);
+				toast.success('Product deleted successfully');
 				setShowDeleteConfirm(false);
-				setProductToDelete(null);
-
-				// If the deleted product is currently being viewed, close the modal
-				if (selectedProduct && selectedProduct._id === productToDelete._id) {
-					setShowModal(false);
-					setSelectedProduct(null);
-				}
-				if (productToEdit && productToEdit._id === productToDelete._id) {
-					setShowEditModal(false);
-					setProductToEdit(null);
-				}
-
-				await fetchList(); // Refresh the list
+				setSelectedProduct(null);
+				await fetchList();
 			} else {
-				toast.error(response.data.message);
+				toast.error(response.data.message || 'Failed to delete product');
 			}
 		} catch (error) {
-			console.error(error);
-			toast.error("Something went wrong while removing the product.");
+			console.error('Error deleting product:', error);
+			toast.error('Error deleting product');
 		} finally {
 			setDeleteLoading(false);
 		}

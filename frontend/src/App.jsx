@@ -11,8 +11,6 @@ import PlaceOrder from "./pages/PlaceOrder";
 import Orders from "./pages/Orders";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import Verify from "./pages/Verify";
 import UserProfile from "./pages/UserProfile";
 import ResetPassword from "./pages/ResetPassword";
@@ -36,12 +34,13 @@ function App() {
     <div className="flex flex-col min-h-screen">
       <Toaster
         position="top-center"
-        reverseOrder={false}
         toastOptions={{
           duration: 3000,
           style: {
-            background: '#363636',
+            background: '#333',
             color: '#fff',
+            padding: '12px 24px',
+            borderRadius: '8px',
           },
         }}
       />
@@ -72,7 +71,6 @@ function App() {
         </Suspense>
       </main>
       <Footer />
-      <ToastContainer />
       <Chatbot />
     </div>
   );

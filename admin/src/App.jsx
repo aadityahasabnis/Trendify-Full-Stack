@@ -12,7 +12,7 @@ import Newsletter from './../pages/Newsletter';
 import Categories from './../pages/Categories';
 import Subcategories from './../pages/Subcategories';
 import Users from '../pages/Users';
-import { ToastContainer } from 'react-toastify';
+import { Toaster } from 'react-hot-toast';
 
 export const backendUrl = import.meta.env.VITE_BACKEND_URL;
 export const currency = "₹";
@@ -25,7 +25,28 @@ const App = () => {
 	}, [token])
 	return (
 		<div className='bg-gray-50 min-h-screen'>
-			<ToastContainer />
+			<Toaster
+				position="top-center"
+				toastOptions={{
+					duration: 4000,
+					style: {
+						background: '#363636',
+						color: '#fff',
+					},
+					success: {
+						duration: 3000,
+						theme: {
+							primary: '#4aed88',
+						},
+					},
+					error: {
+						duration: 4000,
+						theme: {
+							primary: '#ff4b4b',
+						},
+					},
+				}}
+			/>
 			{token === ''
 				? <Login setToken={setToken} />
 				:

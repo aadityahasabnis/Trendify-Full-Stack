@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from 'react'
 import { ShopContext } from '../context/ShopContext'
 import { useNavigate } from 'react-router-dom'
 import ProductCarousel from './ProductCarousel'
-import { toast } from 'react-toastify'
+import { toast } from 'react-hot-toast'
 
 const PersonalizedRecommendations = () => {
     const { token, backendUrl, getStockStatus } = useContext(ShopContext);
@@ -84,7 +84,7 @@ const PersonalizedRecommendations = () => {
     if (isLoading) {
         return (
             <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
             </div>
         );
     }
@@ -92,7 +92,7 @@ const PersonalizedRecommendations = () => {
     if (error) {
         return (
             <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 my-8">
-                <div className="text-center text-red-600">
+                <div className="text-center text-red-500">
                     {error}
                 </div>
             </div>

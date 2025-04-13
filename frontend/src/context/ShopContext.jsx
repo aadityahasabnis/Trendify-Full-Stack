@@ -1,6 +1,6 @@
 import { createContext, useEffect, useState } from "react";
 // import { secondaryNavItems, products, subcategories, categories } from "../assets/frontend_assets/assets";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 
@@ -153,6 +153,21 @@ const ShopContextProvider = (props) => {
 		return totalAmount;
 	};
 
+	const getTotalCartAmount = () => {
+		try {
+			const subtotal = getCartAmount();
+			if (typeof subtotal !== 'number' || isNaN(subtotal)) {
+				return { total: 0, shipping: delivery_fee };
+			}
+			return {
+				total: subtotal + delivery_fee,
+				shipping: delivery_fee
+			};
+		} catch (error) {
+			console.error("Error calculating total cart amount:", error);
+			return { total: 0, shipping: delivery_fee };
+		}
+	};
 
 	// 
 	const getProductsData = async () => {
@@ -338,6 +353,7 @@ const ShopContextProvider = (props) => {
 		delivery_fee,
 		navigate,
 		getCartAmount,
+		getTotalCartAmount,
 		updateQuantity,
 		cartItems,
 		addToCart,

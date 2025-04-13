@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { assets } from "../assets/frontend_assets/assets";
 import Searchbar from "./Searchbar";
 import { ShopContext } from "../context/ShopContext";
-import { toast } from "react-toastify";
+import { toast } from 'react-hot-toast';
 
 const Navbar = () => {
 	const [menuVisible, setMenuVisible] = useState(false);
@@ -15,7 +15,7 @@ const Navbar = () => {
 		pincode: "411007"
 	});
 	const [inputPincode, setInputPincode] = useState("");
-	const { getCartCount, navigate, token, setToken, setCartItems } = useContext(ShopContext);
+	const { getCartCount, navigate, token, setToken } = useContext(ShopContext);
 	const location = useLocation();
 
 	const showLocationToast = () => {
@@ -105,12 +105,12 @@ const Navbar = () => {
 		getLocationFromPincode(inputPincode);
 	};
 
-	const logout = () => {
-		setToken('')
-		localStorage.removeItem('token')
-		setCartItems({})
-		navigate('/login')
-	}
+	const handleLogout = () => {
+		localStorage.removeItem('token');
+		setToken('');
+		toast.success('Logged out successfully');
+		navigate('/');
+	};
 
 	// Update screen width only when it actually changes
 	useEffect(() => {
@@ -204,7 +204,7 @@ const Navbar = () => {
 								</div>
 								<hr className="my-1" />
 								<div
-									onClick={logout}
+									onClick={handleLogout}
 									className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 text-red-600"
 								>
 									<img src={assets.menu_icon} alt="Logout" className="w-5 h-5" />

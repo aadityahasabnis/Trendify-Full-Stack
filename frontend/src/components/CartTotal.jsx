@@ -5,7 +5,7 @@ import { toast } from "react-hot-toast";
 
 const CartTotal = () => {
     const navigate = useNavigate();
-    const { cartItems, products, token } = useContext(ShopContext);
+    const { cartItems, products, token, getTotalCartAmount, currency } = useContext(ShopContext);
 
     const calculateSubtotal = () => {
         return Object.entries(cartItems).reduce((total, [productId, items]) => {
@@ -22,8 +22,7 @@ const CartTotal = () => {
     };
 
     const subtotal = calculateSubtotal();
-    const shipping = subtotal > 0 ? 10 : 0;
-    const total = subtotal + shipping;
+    const { total, shipping } = getTotalCartAmount();
 
     const handleCheckout = () => {
         if (!token) {
@@ -47,20 +46,22 @@ const CartTotal = () => {
             <div className="space-y-4">
                 <div className="flex justify-between">
                     <span className="text-gray-600">Subtotal</span>
-                    <span className="font-medium">${subtotal.toFixed(2)}</span>
+                    <span className="font-medium">
+                        {currency}{subtotal.toFixed(2)}
+                    </span>
                 </div>
 
                 <div className="flex justify-between">
                     <span className="text-gray-600">Shipping</span>
                     <span className="font-medium">
-                        {shipping === 0 ? "Free" : `$${shipping.toFixed(2)}`}
+                        {shipping === 0 ? "Free" : `${currency}${shipping.toFixed(2)}`}
                     </span>
                 </div>
 
                 <div className="border-t pt-4">
                     <div className="flex justify-between text-lg font-semibold">
                         <span>Total</span>
-                        <span>${total.toFixed(2)}</span>
+                        <span>{currency}{total.toFixed(2)}</span>
                     </div>
                 </div>
             </div>

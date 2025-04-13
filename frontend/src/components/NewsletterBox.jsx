@@ -1,42 +1,31 @@
 import React, { useState, useContext } from "react";
 import { ShopContext } from "../context/ShopContext";
-import { toast } from "react-toastify";
+import { toast } from "react-hot-toast";
 import axios from "axios";
 
 const NewsletterBox = () => {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { backendUrl } = useContext(ShopContext);
 
-  const onSubmitHandler = async (event) => {
-    event.preventDefault();
-
-    if (!email) {
-      toast.error("Please enter your email address");
-      return;
-    }
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
     try {
-      setLoading(true);
-      const response = await axios.post(
-        `${backendUrl}/api/newsletter/subscribe`,
-        { email }
-      );
-
+      const response = await axios.post(`${backendUrl}/api/newsletter/subscribe`, {
+        email
+      });
       if (response.data.success) {
-        toast.success("Successfully subscribed to newsletter!");
-        setEmail("");
+        toast.success('Successfully subscribed to newsletter');
+        setEmail('');
       } else {
-        toast.error(response.data.message || "Failed to subscribe");
+        toast.error(response.data.message);
       }
     } catch (error) {
-      console.error("Newsletter subscription error:", error);
-      toast.error(
-        error.response?.data?.message ||
-        "Error subscribing to newsletter. Please try again."
-      );
+      console.error('Newsletter subscription error:', error);
+      toast.error('Failed to subscribe. Please try again.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -50,7 +39,7 @@ const NewsletterBox = () => {
         Subscribe to our newsletter and get 20% off on your first purchase!
       </p>
 
-      <form onSubmit={onSubmitHandler} className="flex items-center w-full gap-3 pl-3 mx-auto my-5 border sm:w-1/2">
+      <form onSubmit={handleSubmit} className="flex items-center w-full gap-3 pl-3 mx-auto my-5 border sm:w-1/2">
         <input
           className="w-full outline-none sm:flex-1"
           type="email"
@@ -58,15 +47,14 @@ const NewsletterBox = () => {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Enter your email"
           required
-          disabled={loading}
+          disabled={isLoading}
         />
         <button
           type="submit"
-          disabled={loading}
-          className={`px-10 py-4 text-xs text-white bg-black hover:bg-gray-800 transition-colors ${loading ? "opacity-50 cursor-not-allowed" : ""
-            }`}
+          disabled={isLoading}
+          className={`px-10 py-4 text-xs text-white bg-black hover:bg-gray-800 transition-colors ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
         >
-          {loading ? "SUBSCRIBING..." : "SUBSCRIBE"}
+          {isLoading ? "SUBSCRIBING..." : "SUBSCRIBE"}
         </button>
       </form>
     </div>

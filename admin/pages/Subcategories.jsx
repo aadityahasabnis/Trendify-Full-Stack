@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 import { backendUrl } from '../src/App';
 
 const Subcategories = ({ token }) => {
@@ -29,55 +29,27 @@ const Subcategories = ({ token }) => {
     }, [categories]);
 
     const fetchData = async () => {
-        setLoading(true);
         try {
-            // Fetch subcategories - Assuming backend populates 'category'
-            const subcategoriesRes = await axios.get(`${backendUrl}/api/subcategories`, { headers: { token } });
-            let fetchedSubcategories = [];
-            if (subcategoriesRes.data.success) {
-                // Assuming subcategory.category is populated by the backend
-                fetchedSubcategories = subcategoriesRes.data.subcategories;
-            } else {
-                toast.error("Failed to load subcategories.");
-            }
+            setLoading(true);
+            const [categoriesRes, subcategoriesRes] = await Promise.all([
+                axios.get(`${backendUrl}/api/categories`, { headers: { token } }),
+                axios.get(`${backendUrl}/api/subcategories`, { headers: { token } })
+            ]);
 
-            // Fetch all products to calculate counts
-            const productsRes = await axios.get(`${backendUrl}/api/product/list`, { headers: { token } });
-            const allProducts = productsRes.data.success ? productsRes.data.products : [];
-
-            // Enhance subcategories with product counts
-            const enhancedSubcategories = fetchedSubcategories.map(sub => {
-                const subIdStr = sub._id.toString();
-                const subcategoryProducts = allProducts.filter(product => product.subcategoryId?.toString() === subIdStr);
-                return {
-                    ...sub,
-                    // category object should already be populated from backend
-                    productCount: subcategoryProducts.length
-                };
-            });
-
-            setSubcategories(enhancedSubcategories);
-
-            // Fetch categories separately for the dropdown in the Add/Edit modals
-            const categoriesRes = await axios.get(`${backendUrl}/api/categories`, { headers: { token } });
             if (categoriesRes.data.success) {
-                const fetchedCategories = categoriesRes.data.categories;
-                setCategories(fetchedCategories);
-                // Set default category for add modal
-                if (fetchedCategories.length > 0 && !newSubcategory.categoryId) {
-                    setNewSubcategory(prev => ({
-                        ...prev,
-                        categoryId: fetchedCategories[0]._id
-                    }));
-                }
+                setCategories(categoriesRes.data.categories);
             } else {
-                toast.error("Failed to load categories for dropdown.");
-                setCategories([]); // Set empty array on failure
+                toast.error('Failed to load categories');
             }
 
+            if (subcategoriesRes.data.success) {
+                setSubcategories(subcategoriesRes.data.subcategories);
+            } else {
+                toast.error('Failed to load subcategories');
+            }
         } catch (error) {
-            toast.error('Error fetching initial data');
-            console.error(error);
+            console.error('Error fetching data:', error);
+            toast.error('Error loading data');
         } finally {
             setLoading(false);
         }
@@ -141,10 +113,11 @@ const Subcategories = ({ token }) => {
                     }
                 }
             );
+
             if (response.data.success) {
                 toast.success('Subcategory added successfully');
                 setShowAddModal(false);
-                setNewSubcategory({ name: '', description: '', categoryId: categories[0]?._id || '', image: null });
+                setNewSubcategory({ name: '', description: '', categoryId: '', image: null });
                 setPreviewImage(null);
                 fetchData();
             }
@@ -418,7 +391,7 @@ const Subcategories = ({ token }) => {
                             <h3 className="text-xl font-semibold">Add New Subcategory</h3>
                             <button onClick={() => {
                                 setShowAddModal(false);
-                                setNewSubcategory({ name: '', description: '', categoryId: categories[0]?._id || '', image: null });
+                                setNewSubcategory({ name: '', description: '', categoryId: '', image: null });
                                 setPreviewImage(null);
                             }} className="text-gray-500 hover:text-gray-700">
                                 <span className="material-icons">close</span>
@@ -497,7 +470,7 @@ const Subcategories = ({ token }) => {
                                     type="button"
                                     onClick={() => {
                                         setShowAddModal(false);
-                                        setNewSubcategory({ name: '', description: '', categoryId: categories[0]?._id || '', image: null });
+                                        setNewSubcategory({ name: '', description: '', categoryId: '', image: null });
                                         setPreviewImage(null);
                                     }}
                                     className="px-4 py-2 text-gray-600 hover:text-gray-800"

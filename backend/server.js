@@ -20,11 +20,6 @@ import mongoose from 'mongoose';
 
 // App config
 const app = express();
-const port = process.env.PORT;
-
-// Connect to MongoDB and Cloudinary
-connectDB();
-connectCloudinary();
 
 // Middlewares
 app.use(express.json());
@@ -34,16 +29,20 @@ const allowedOrigins = [
     'http://localhost:5173',
     'https://trendify-admin-rose.vercel.app',
     'https://trendify-frontend-vercel.vercel.app',
-    'https://trendify-frontend-jrmmlhvbh-aaditya-hasabnis.vercel.app'
+    'https://trendify-frontend-jrmmlhvbh-aaditya-hasabnis.vercel.app',
+    'https://trendify-frontend.vercel.app'
 ];
 
 const corsOptions = {
-    origin: (origin, callback) => {
-        if (allowedOrigins.includes(origin) || !origin) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.indexOf(origin) === -1) {
+            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
         }
+        return callback(null, true);
     },
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'token', 'x-requested-with'],
@@ -53,22 +52,15 @@ const corsOptions = {
     maxAge: 86400 // 24 hours
 };
 
+// Apply CORS middleware
 app.use(cors(corsOptions));
 
-// Add a middleware to ensure CORS headers are set for all responses
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, token, x-requested-with');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    next();
-});
-
-// Handle preflight requests explicitly
+// Handle preflight requests
 app.options('*', cors(corsOptions));
+
+// Connect to MongoDB and Cloudinary
+connectDB();
+connectCloudinary();
 
 // API endpoints
 app.use('/api/user', userRouter);
@@ -105,10 +97,20 @@ app.use((err, req, res, next) => {
     });
 });
 
+// Root endpoint
 app.get('/', (req, res) => {
-    res.send("API working.");
+    res.json({
+        status: 'ok',
+        message: 'API is running',
+        environment: process.env.NODE_ENV
+    });
 });
 
-app.listen(port, () => {
-    console.log("Server started on port: " + port);
+// Export the Express API
+export default app;
+
+// Start the server
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });

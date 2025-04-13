@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { FaTrash } from 'react-icons/fa';
@@ -9,6 +9,7 @@ import CartTotal from '../components/CartTotal';
 const Cart = () => {
 	const { products, currency, cartItems, updateQuantity, removeFromCart, isLoading, clearCart } = useContext(ShopContext);
 	const [cartData, setCartData] = useState([]);
+	const isInitialMount = useRef(true);
 
 	useEffect(() => {
 		console.log('Cart Items:', cartItems); // Debug log
@@ -31,12 +32,14 @@ const Cart = () => {
 			});
 		}
 		console.log('Processed Cart Data:', tempData); // Debug log
-		setCartData(tempData);
 
-		// Show toast when cart items change (except on initial load)
-		if (tempData.length > 0 && cartData.length === 0) {
+		// Only show toast if it's not the initial mount and there's a change in cart items
+		if (!isInitialMount.current && tempData.length > cartData.length) {
 			toast.success('Item added to cart');
 		}
+
+		setCartData(tempData);
+		isInitialMount.current = false;
 	}, [cartItems, products]);
 
 	const handleQuantityChange = async (productId, size, newQuantity) => {
@@ -153,16 +156,17 @@ const Cart = () => {
 					);
 				})}
 			</div>
-			<div className="flex justify-between my-20">
-				<button
-					onClick={handleClearCart}
-					className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-				>
-					Clear Cart
-				</button>
+			<div className="flex flex-col sm:flex-row justify-between items-center gap-6 my-20">
 				<div className="w-full sm:w-[450px]">
 					<CartTotal />
 				</div>
+				<button
+					onClick={handleClearCart}
+					className="w-full sm:w-auto px-6 py-3 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+				>
+					<FaTrash />
+					Clear Cart
+				</button>
 			</div>
 		</div>
 	);

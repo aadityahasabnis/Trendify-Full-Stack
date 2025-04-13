@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import axios from 'axios';
 import { backendUrl, currency } from './../src/App';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 import { assets } from '../assets/assets';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
@@ -67,28 +67,26 @@ const Orders = ({ token }) => {
 
   // Main data fetching function
   const fetchOrders = async (page = currentPage) => {
-    if (!token) return null;
-
-    setLoading(true);
     try {
-      const response = await axios.post(
-        `${backendUrl}/api/order/list`,
-        { page, limit: pageSize },
-        { headers: { token } }
-      );
+      setLoading(true);
+      const response = await axios.post(`${backendUrl}/api/order/list`, {
+        page,
+        limit: pageSize
+      }, {
+        headers: { token }
+      });
 
       if (response.data.success) {
-        const orderData = response.data.orders;
-        setOrders(orderData);
-        setFilteredOrders(orderData);
-        setTotalOrders(response.data.totalCount || orderData.length);
-        calculateAnalytics(orderData);
-        identifyTopProducts(orderData);
+        setOrders(response.data.orders);
+        setTotalOrders(response.data.total);
+        calculateAnalytics(response.data.orders);
+        identifyTopProducts(response.data.orders);
       } else {
-        toast.error(response.data.message);
+        toast.error('Failed to fetch orders');
       }
     } catch (error) {
-      toast.error("Error fetching orders: " + error.message);
+      console.error('Error fetching orders:', error);
+      toast.error('Error loading orders');
     } finally {
       setLoading(false);
     }
@@ -362,42 +360,31 @@ const Orders = ({ token }) => {
 
   // Handle bulk status update
   const handleBulkStatusUpdate = async (newStatus) => {
-    if (!newStatus) {
-      toast.error("Please select a status");
-      return;
-    }
-
     if (selectedOrderIds.length === 0) {
-      toast.warning("No orders selected");
+      toast.error('Please select at least one order');
       return;
     }
 
-    setIsUpdating(true);
     try {
-      const response = await axios.post(
-        `${backendUrl}/api/order/bulk-status-update`,
-        {
-          orderIds: selectedOrderIds,
-          status: newStatus
-        },
+      setLoading(true);
+      const response = await axios.put(
+        `${backendUrl}/api/order/bulk-update`,
+        { orderIds: selectedOrderIds, status: newStatus },
         { headers: { token } }
       );
 
       if (response.data.success) {
-        toast.success(`Successfully updated ${response.data.modifiedCount || selectedOrderIds.length} orders`);
-        await fetchOrders();
+        toast.success('Orders updated successfully');
         setSelectedOrderIds([]);
-        setIsAllSelected(false);
-        setShowBulkUpdate(false);
+        fetchOrders();
       } else {
-        toast.error(response.data.message || "Failed to update orders");
+        toast.error(response.data.message || 'Failed to update orders');
       }
     } catch (error) {
-      console.error("Error updating orders:", error);
-      const errorMessage = error.response?.data?.message || error.message || "Error updating orders";
-      toast.error(errorMessage);
+      console.error('Error updating orders:', error);
+      toast.error('Error updating orders');
     } finally {
-      setIsUpdating(false);
+      setLoading(false);
     }
   };
 
@@ -662,7 +649,7 @@ const Orders = ({ token }) => {
   };
 
   // Contact customer via email with invoice
-  const contactViaEmail = async (email, orderNumber) => {
+  const contactViaEmail = async (email) => {
     if (!email) {
       toast.error("Email not available");
       return;
@@ -676,116 +663,98 @@ const Orders = ({ token }) => {
     setIsUpdating(true);
 
     try {
-      // Create email subject and body with HTML
-      const subject = `🧾 Invoice for Your Trendify Order #${orderNumber.substring(orderNumber.length - 8)}`;
-
       // Generate invoice HTML
-      const items = selectedOrder.items.map(item => `
+      const itemsHtml = selectedOrder.items.map(item => `
         <tr style="vertical-align:top;">
           <td style="padding:10px 8px;border-bottom:1px solid #eee;">
               <img src="${item.image?.[0] || 'https://via.placeholder.com/50'}" alt="${item.name}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;margin-right:10px;vertical-align:middle;">
-              ${item.name}
+              <span style="font-weight:500;">${item.name}</span>
           </td>
           <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
-          <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:center;">${item.size || '-'}</td>
-          <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right;">${currency} ${item.price.toFixed(2)}</td>
-          <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right;">${currency} ${(item.price * item.quantity).toFixed(2)}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right;">₹${item.price}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right;">₹${item.price * item.quantity}</td>
         </tr>
       `).join('');
 
-      // Create HTML email content
-      const emailContent = `
+      const invoiceHtml = `
         <!DOCTYPE html>
         <html>
-        <head>
-        <style> body { font-family: Arial, sans-serif; color: #333; } .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #eee; } .header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eee; } .header h1 { color: #6c63ff; margin: 0; } .section { margin-bottom: 20px; } .section h3 { font-size: 16px; color: #444; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; } .address p, .details p { font-size: 14px; line-height: 1.6; margin: 0 0 5px 0; } .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; } .items-table th, .items-table td { padding: 10px 8px; border-bottom: 1px solid #eee; text-align: left; } .items-table th { background-color: #f8f8f8; font-weight: bold; } .items-table .text-right { text-align: right; } .items-table .text-center { text-align: center; } .items-table img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px; vertical-align: middle; } .totals { text-align: right; margin-top: 20px; } .totals p { margin: 5px 0; font-size: 14px; } .totals strong { font-size: 15px; } .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; } .footer a { color: #6c63ff; text-decoration: none; } </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header"><h1>Trendify Order Invoice</h1></div>
-            <div class="section details" style="display: flex; justify-content: space-between;">
-              <div>
-                <p><strong>Trendify</strong><br/>123 Fashion Street<br/>Style City, SC 12345</p>
+          <head>
+            <meta charset="utf-8">
+            <title>Invoice</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #333; }
+              .container { max-width: 800px; margin: 0 auto; }
+              .header { text-align: center; margin-bottom: 20px; }
+              .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+              .items-table th, .items-table td { padding: 10px; border-bottom: 1px solid #eee; }
+              .text-center { text-align: center; }
+              .text-right { text-align: right; }
+              .total { text-align: right; font-weight: bold; margin-top: 20px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>Invoice</h1>
+                <p>Order #${selectedOrder._id}</p>
+                <p>Date: ${new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
               </div>
-              <div style="text-align: right;">
-                <p><strong>Invoice #:</strong> ${selectedOrder._id}<br/>
-                   <strong>Date:</strong> ${new Date(selectedOrder.date).toLocaleDateString()}<br/>
-                   <strong>Payment:</strong> ${selectedOrder.payment ? "Paid" : "Pending"} (${selectedOrder.paymentMethod})
-                </p>
-              </div>
-            </div>
-            <div class="section address">
-              <h3>Bill To:</h3>
-              <p>${selectedOrder.address.firstName} ${selectedOrder.address.lastName}<br/>
-                 ${selectedOrder.address.street}<br/>
-                 ${selectedOrder.address.city}, ${selectedOrder.address.state} ${selectedOrder.address.zipcode}<br/>
-                 ${selectedOrder.address.country}<br/>
-                 Phone: ${selectedOrder.address.phone}
-              </p>
-            </div>
-            <div class="section items">
-              <h3>Order Items:</h3>
               <table class="items-table">
-                <thead><tr><th>Item</th><th class="text-center">Qty</th><th class="text-center">Size</th><th class="text-right">Price</th><th class="text-right">Total</th></tr></thead>
-                <tbody>${items}</tbody>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th class="text-center">Qty</th>
+                    <th class="text-right">Price</th>
+                    <th class="text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>${itemsHtml}</tbody>
               </table>
+              <div class="total">
+                <p>Subtotal: ₹${selectedOrder.totalAmount}</p>
+                <p>Shipping: ₹${selectedOrder.shippingFee || 0}</p>
+                <p>Total: ₹${selectedOrder.totalAmount + (selectedOrder.shippingFee || 0)}</p>
+              </div>
             </div>
-            <div class="totals">
-              <p>Subtotal: <span style="float:right;">${currency} ${selectedOrder.amount.toFixed(2)}</span></p>
-              <p>Shipping: <span style="float:right;">${currency} 0.00</span></p>
-              <p><strong>Total: <span style="float:right;">${currency} ${selectedOrder.amount.toFixed(2)}</span></strong></p>
-            </div>
-            <div class="footer">
-              <p>Thank you for your purchase!</p>
-              <p>Questions? Contact <a href="mailto:support@trendify.com">support@trendify.com</a></p>
-            </div>
-          </div>
-        </body>
+          </body>
         </html>
       `;
 
-      // Send API request to send email
-      const response = await axios.post(
-        `${backendUrl}/api/email/send-invoice`,
-        {
-          email: email,
-          subject: subject,
-          html: emailContent,
-          orderId: selectedOrder._id,
-          orderNumber: orderNumber,
-          customerName: `${selectedOrder.address.firstName} ${selectedOrder.address.lastName}`,
-          orderDate: new Date(selectedOrder.date).toLocaleDateString(),
-          totalAmount: selectedOrder.amount
-        },
-        {
-          headers: {
-            token,
-            'Content-Type': 'application/json'
-          },
-          timeout: 30000
-        }
-      );
+      // Create a blob from the HTML content
+      const blob = new Blob([invoiceHtml], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
 
-      if (response.data.success) {
-        toast.success("Invoice sent successfully!");
-        // Add to timeline
-        const timelineEntry = {
-          type: 'note',
-          text: `Invoice sent to ${email}`,
-          timestamp: Date.now(),
-          addedBy: 'System'
-        };
-        setOrderTimeline([timelineEntry, ...orderTimeline]);
-      } else {
-        toast.error(response.data.message || "Failed to send invoice");
-      }
+      // Create a download link
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice_${selectedOrder._id}.html`;
+      document.body.appendChild(link);
+      link.click();
+
+      // Clean up
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success('Invoice downloaded successfully');
+
+      // Add to timeline
+      const timelineEntry = {
+        type: 'note',
+        text: `Invoice sent to ${email}`,
+        timestamp: Date.now(),
+        addedBy: 'System'
+      };
+      setOrderTimeline([timelineEntry, ...orderTimeline]);
 
     } catch (error) {
       console.error("Error sending invoice:", error);
       if (error.code === 'ECONNABORTED') {
         toast.error("Email request timed out. Please try again.");
-      } else if (error.response) {
-        toast.error(`Email Server Error: ${error.response.data.message || error.response.status}`);
+      } else if (error.response?.data?.message) {
+        toast.error(`Email Server Error: ${error.response.data.message}`);
+      } else if (error.response?.status) {
+        toast.error(`Email Server Error: ${error.response.status}`);
       } else if (error.request) {
         toast.error("No response from email server. Please check your connection.");
       } else {
@@ -880,6 +849,94 @@ const Orders = ({ token }) => {
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleGenerateInvoice = async (orderId) => {
+    try {
+      const selectedOrder = orders.find(order => order._id === orderId);
+      if (!selectedOrder) {
+        toast.error('Order not found');
+        return;
+      }
+
+      // Generate invoice HTML
+      const invoiceHtml = generateInvoiceHtml(selectedOrder);
+
+      // Create and download the file
+      const blob = new Blob([invoiceHtml], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice_${selectedOrder._id}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success('Invoice downloaded successfully');
+    } catch (error) {
+      console.error('Error generating invoice:', error);
+      toast.error('Failed to generate invoice');
+    }
+  };
+
+  const generateInvoiceHtml = (order) => {
+    const itemsHtml = order.items.map(item => `
+      <tr style="vertical-align:top;">
+        <td style="padding:10px 8px;border-bottom:1px solid #eee;">
+            <img src="${item.image?.[0] || 'https://via.placeholder.com/50'}" alt="${item.name}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;margin-right:10px;vertical-align:middle;">
+            <span style="font-weight:500;">${item.name}</span>
+        </td>
+        <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right;">₹${item.price}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right;">₹${item.price * item.quantity}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Invoice</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #333; }
+            .container { max-width: 800px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            .items-table th, .items-table td { padding: 10px; border-bottom: 1px solid #eee; }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .total { text-align: right; font-weight: bold; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Invoice</h1>
+              <p>Order #${order._id}</p>
+              <p>Date: ${new Date(order.createdAt).toLocaleDateString()}</p>
+            </div>
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th class="text-center">Qty</th>
+                  <th class="text-right">Price</th>
+                  <th class="text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>${itemsHtml}</tbody>
+            </table>
+            <div class="total">
+              <p>Subtotal: ₹${order.totalAmount}</p>
+              <p>Shipping: ₹${order.shippingFee || 0}</p>
+              <p>Total: ₹${order.totalAmount + (order.shippingFee || 0)}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
   };
 
   if (loading && orders.length === 0) {
@@ -1244,7 +1301,7 @@ const Orders = ({ token }) => {
                       </div>
                       {/* Mobile visible status */}
                       <div className="sm:hidden mt-1">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' :
+                        <span className={`px - 2 py - 1 inline - flex text - xs leading - 5 font - medium rounded - full ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' :
                           order.status === 'Shipped' ? 'bg-blue-100 text-blue-800' :
                             order.status === 'Out for delivery' ? 'bg-purple-100 text-purple-800' :
                               order.status === 'Packing' ? 'bg-yellow-100 text-yellow-800' :
@@ -1269,7 +1326,7 @@ const Orders = ({ token }) => {
                 <td className="px-2 sm:px-4 py-3 hidden sm:table-cell">
                   <div className="flex flex-col">
                     <div className="mb-2">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' :
+                      <span className={`px - 2 py - 1 inline - flex text - xs leading - 5 font - medium rounded - full ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' :
                         order.status === 'Shipped' ? 'bg-blue-100 text-blue-800' :
                           order.status === 'Out for delivery' ? 'bg-purple-100 text-purple-800' :
                             order.status === 'Packing' ? 'bg-yellow-100 text-yellow-800' :
@@ -1281,8 +1338,8 @@ const Orders = ({ token }) => {
                     </div>
 
                     <div className="flex items-center">
-                      <span className={`inline-block w-2 h-2 rounded-full ${order.payment ? 'bg-green-500' : 'bg-yellow-500'
-                        } mr-1`}></span>
+                      <span className={`inline - block w - 2 h - 2 rounded - full ${order.payment ? 'bg-green-500' : 'bg-yellow-500'
+                        } mr - 1`}></span>
                       <span className="text-xs text-gray-600">
                         {order.payment ? 'Paid' : 'Pending'} · {order.paymentMethod}
                       </span>
@@ -1395,7 +1452,7 @@ const Orders = ({ token }) => {
             <i className="material-icons" style={{ fontSize: '18px' }}>chevron_left</i>
           </button>
 
-          {[...Array(Math.min(3, Math.ceil(totalOrders / pageSize)))].map((_, i) => {
+          {[...Array(Math.min(3, Math.ceil((totalOrders || 0) / pageSize)))].map((_, i) => {
             const pageNumber = i + 1;
             return (
               <button
@@ -1621,7 +1678,7 @@ const Orders = ({ token }) => {
               </button>
               <button
                 onClick={() => {
-                  contactViaEmail(selectedOrder?.address.email, selectedOrder?._id);
+                  contactViaEmail(selectedOrder?.address.email);
                 }}
                 className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center"
                 disabled={isUpdating}
@@ -1696,7 +1753,7 @@ const Orders = ({ token }) => {
 
                     <div className="mt-4 flex gap-2">
                       <button
-                        onClick={() => contactViaWhatsApp(selectedOrder.address.phone, selectedOrder._id, `${selectedOrder.address.firstName} ${selectedOrder.address.lastName}`, selectedOrder.items)}
+                        onClick={() => contactViaWhatsApp(selectedOrder.address.phone, selectedOrder._id, `${selectedOrder.address.firstName} ${selectedOrder.address.lastName} `, selectedOrder.items)}
                         className="px-3 py-1.5 bg-green-500 text-white rounded-md hover:bg-green-600 text-sm flex items-center"
                       >
                         <i className="material-icons mr-1" style={{ fontSize: '14px' }}>chat</i>
@@ -1741,7 +1798,7 @@ const Orders = ({ token }) => {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-100">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Product</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Item</th>
                           <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Quantity</th>
                           <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Size</th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Price</th>
@@ -1796,16 +1853,16 @@ const Orders = ({ token }) => {
                         .map((entry, index) => (
                           <div key={index} className="flex gap-3 border-l-2 border-gray-300 pl-4 relative">
                             {/* Timeline Dot - Different color based on type */}
-                            <div className={`absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white ${entry.type === 'status_change' ? 'bg-green-500' :
+                            <div className={`absolute - left - [5px] top - 1.5 w - 2.5 h - 2.5 rounded - full border - 2 border - white ${entry.type === 'status_change' ? 'bg-green-500' :
                               entry.type === 'note' ? 'bg-yellow-500' :
                                 'bg-blue-500' // Default/event color
-                              }`}></div>
+                              } `}></div>
 
                             <div className="flex-1 pb-2">
                               <div className="flex justify-between items-center">
                                 <p className="text-sm font-semibold text-gray-800">
                                   {/* Display specific action text based on type */}
-                                  {entry.type === 'note' ? `Note Added by ${entry.addedBy}` :
+                                  {entry.type === 'note' ? `Note Added by ${entry.addedBy} ` :
                                     entry.type === 'status_change' ? `Status Changed` :
                                       entry.text /* Display text for 'event' or fallback */}
                                 </p>
@@ -1839,7 +1896,7 @@ const Orders = ({ token }) => {
                     Close
                   </button>
                   <button
-                    onClick={() => generateInvoice(selectedOrder)}
+                    onClick={() => handleGenerateInvoice(selectedOrder._id)}
                     className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 flex items-center"
                   >
                     <i className="material-icons mr-1" style={{ fontSize: '18px' }}>receipt</i>

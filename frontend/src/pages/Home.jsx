@@ -13,7 +13,10 @@ const Home = () => {
     return (
         <div className="min-h-screen">
             {/* Secondary Navigation */}
-            <SecondaryNav items={assets.secondaryNavItems} />
+            <div className="hidden md:block">
+
+                <SecondaryNav items={assets.secondaryNavItems} />
+            </div>
 
             {/* Hero Section with Slideshow */}
             <Hero />

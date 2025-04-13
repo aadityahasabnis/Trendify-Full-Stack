@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect, useRef } from "react";
 import { assets } from "../assets/frontend_assets/assets";
 import { ShopContext } from "../context/ShopContext";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "react-hot-toast";
 import axios from "axios";
 
 const Searchbar = () => {
@@ -21,9 +21,12 @@ const Searchbar = () => {
                 const response = await axios.get(`${backendUrl}/api/categories`);
                 if (response.data.success) {
                     setCategories(response.data.categories);
+                } else {
+                    toast.error('Failed to fetch categories');
                 }
             } catch (error) {
                 console.error('Error fetching categories:', error);
+                toast.error('Error fetching categories');
             }
         };
 
