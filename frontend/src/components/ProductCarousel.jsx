@@ -23,7 +23,7 @@ const ProductCard = memo(({ product, onClick, showStockStatus }) => {
 
     return (
         <div
-            className="relative group cursor-pointer"
+            className="relative group cursor-pointer px-2"
             onClick={() => onClick(product._id)}
         >
             <div className="relative overflow-hidden rounded-lg">
@@ -65,27 +65,46 @@ const ProductCarousel = ({ title, subtitle, products, showStockStatus = false })
     const [isAnimating, setIsAnimating] = useState(false);
     const navigate = useNavigate();
 
-    // Calculate total pages based on 5 items per page
-    const totalPages = Math.ceil(products.length / 5);
-    const currentPage = Math.floor(startIndex / 5);
+    // Calculate total pages based on screen size
+    const getItemsPerPage = () => {
+        if (window.innerWidth < 640) return 1; // Mobile
+        if (window.innerWidth < 768) return 2; // Small tablets
+        if (window.innerWidth < 1024) return 3; // Tablets
+        return 5; // Desktop
+    };
+
+    const [itemsPerPage, setItemsPerPage] = useState(getItemsPerPage());
+
+    // Update items per page on window resize
+    React.useEffect(() => {
+        const handleResize = () => {
+            setItemsPerPage(getItemsPerPage());
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const totalPages = Math.ceil(products.length / itemsPerPage);
+    const currentPage = Math.floor(startIndex / itemsPerPage);
 
     const visibleProducts = useMemo(() => {
-        return products.slice(startIndex, startIndex + 5);
-    }, [products, startIndex]);
+        return products.slice(startIndex, startIndex + itemsPerPage);
+    }, [products, startIndex, itemsPerPage]);
 
     const handlePrev = useCallback(() => {
         if (isAnimating || startIndex === 0) return;
         setIsAnimating(true);
-        setStartIndex(prev => Math.max(0, prev - 5));
+        setStartIndex(prev => Math.max(0, prev - itemsPerPage));
         setTimeout(() => setIsAnimating(false), 300);
-    }, [startIndex, isAnimating]);
+    }, [startIndex, isAnimating, itemsPerPage]);
 
     const handleNext = useCallback(() => {
-        if (isAnimating || startIndex + 5 >= products.length) return;
+        if (isAnimating || startIndex + itemsPerPage >= products.length) return;
         setIsAnimating(true);
-        setStartIndex(prev => Math.min(products.length - 5, prev + 5));
+        setStartIndex(prev => Math.min(products.length - itemsPerPage, prev + itemsPerPage));
         setTimeout(() => setIsAnimating(false), 300);
-    }, [products.length, startIndex, isAnimating]);
+    }, [products.length, startIndex, isAnimating, itemsPerPage]);
 
     const handleProductClick = useCallback((productId) => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -107,16 +126,16 @@ const ProductCarousel = ({ title, subtitle, products, showStockStatus = false })
             <div className="w-full px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-3">
-                        <h2 className="text-3xl font-bold text-gray-900 font-serif tracking-wide">{title}</h2>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 font-serif tracking-wide">{title}</h2>
                         {subtitle && (
                             <>
-                                <span className="text-lg text-gray-600 font-light">|</span>
-                                <p className="text-lg text-gray-600">{subtitle}</p>
+                                <span className="text-lg text-gray-600 font-light hidden sm:block">|</span>
+                                <p className="text-lg text-gray-600 hidden sm:block">{subtitle}</p>
                             </>
                         )}
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="hidden sm:flex items-center gap-3">
                         <div className="flex space-x-1">
                             {[...Array(totalPages)].map((_, i) => (
                                 <button
@@ -125,7 +144,7 @@ const ProductCarousel = ({ title, subtitle, products, showStockStatus = false })
                                     onClick={() => {
                                         if (isAnimating) return;
                                         setIsAnimating(true);
-                                        setStartIndex(i * 5);
+                                        setStartIndex(i * itemsPerPage);
                                         setTimeout(() => setIsAnimating(false), 300);
                                     }}
                                     aria-label={`Go to page ${i + 1}`}
@@ -149,7 +168,7 @@ const ProductCarousel = ({ title, subtitle, products, showStockStatus = false })
 
                     <div className="overflow-hidden">
                         <div
-                            className={`grid grid-cols-5 gap-6 transition-transform duration-300 ease-in-out`}
+                            className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 transition-transform duration-300 ease-in-out`}
                             style={{
                                 transform: `translateX(${isAnimating ? '0' : '0'})`
                             }}
@@ -158,7 +177,7 @@ const ProductCarousel = ({ title, subtitle, products, showStockStatus = false })
                         </div>
                     </div>
 
-                    {startIndex + 5 < products.length && (
+                    {startIndex + itemsPerPage < products.length && (
                         <button
                             onClick={handleNext}
                             disabled={isAnimating}

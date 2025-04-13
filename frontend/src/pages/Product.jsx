@@ -41,7 +41,10 @@ const Breadcrumb = ({ category, name }) => (
 			<li>
 				<div className="flex items-center">
 					<span className="mx-2 text-gray-400">/</span>
-					<span className="text-gray-700">{name}</span>
+					<span className="text-gray-700 line-clamp-1 md:line-clamp-none">
+						{name.split(' ').slice(0, 3).join(' ')}
+						{name.split(' ').length > 3 && <span className="md:hidden">...</span>}
+					</span>
 				</div>
 			</li>
 		</ol>
@@ -661,7 +664,10 @@ const Product = () => {
 							<div className="flex items-center space-x-4">
 								<img src={image} alt={productData.name} className="w-16 h-16 object-cover rounded" />
 								<div>
-									<h3 className="text-sm font-medium text-gray-900">{productData.name}</h3>
+									<h3 className="text-sm font-medium text-gray-900 line-clamp-1 md:line-clamp-none">
+										{productData.name.split(' ').slice(0, 3).join(' ')}
+										{productData.name.split(' ').length > 3 && <span className="md:hidden">...</span>}
+									</h3>
 									<p className="text-sm font-bold text-gray-900">{currency}{productData.price}</p>
 								</div>
 							</div>
