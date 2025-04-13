@@ -453,7 +453,9 @@ const Inventory = ({ token }) => {
                                                     <img className="h-10 w-10 rounded-md object-cover" src={product.image[0]} alt="" />
                                                 </div>
                                                 <div className="ml-4">
-                                                    <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                        {product.name.length > 30 ? `${product.name.substring(0, 30)}...` : product.name}
+                                                    </div>
                                                     <div className="text-xs text-gray-500">{product.categoryName || product.categoryId}</div>
                                                 </div>
                                             </div>

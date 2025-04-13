@@ -312,6 +312,27 @@ const ShopContextProvider = (props) => {
 		}
 	};
 
+	const fetchRelatedProducts = async (productId) => {
+		try {
+			const response = await fetch(`${backendUrl}/api/recommendations/related/${productId}`, {
+				headers: {
+					'Content-Type': 'application/json',
+					'token': localStorage.getItem('token')
+				}
+			});
+
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+
+			const data = await response.json();
+			return data;
+		} catch (error) {
+			console.error('Error fetching related products:', error);
+			throw error;
+		}
+	};
+
 	const value = {
 		backendUrl,
 		delivery_fee,
@@ -334,7 +355,8 @@ const ShopContextProvider = (props) => {
 		getStockStatus,
 		isLoading,
 		removeFromCart,
-		clearCart
+		clearCart,
+		fetchRelatedProducts
 	};
 
 	return <ShopContext.Provider value={value}>{props.children}</ShopContext.Provider>;

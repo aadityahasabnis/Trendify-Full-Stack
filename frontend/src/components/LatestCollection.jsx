@@ -8,7 +8,11 @@ const LatestCollection = () => {
   const [latestProducts, setLatestProduct] = useState([]);
 
   useEffect(() => {
-    setLatestProduct(products.slice(0, 10));
+    // Sort products by createdAt date in descending order (newest first)
+    const sortedProducts = [...products].sort((a, b) =>
+      new Date(b.createdAt) - new Date(a.createdAt)
+    );
+    setLatestProduct(sortedProducts.slice(0, 10));
   }, [products])
 
   return (

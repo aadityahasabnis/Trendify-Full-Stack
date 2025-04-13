@@ -15,6 +15,14 @@ const Product = () => {
         totalReviews: 0
     });
 
+    // Scroll to top when component mounts or productId changes
+    useEffect(() => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    }, [productId]);
+
     useEffect(() => {
         const fetchProduct = async () => {
             try {
@@ -43,17 +51,12 @@ const Product = () => {
                 if (response.data.success) {
                     setReviewStats(response.data.stats);
                 }
-            } catch (error) {
-                if (error.response?.status === 404) {
-                    // No reviews found, set default stats
-                    setReviewStats({
-                        averageRating: 0,
-                        totalReviews: 0
-                    });
-                    console.log('No reviews found for this product');
-                } else {
-                    console.error("Error fetching reviews or stats:", error);
-                }
+            } catch {
+                // For any error, set default stats
+                setReviewStats({
+                    averageRating: 0,
+                    totalReviews: 0
+                });
             }
         };
 

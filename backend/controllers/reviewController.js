@@ -175,25 +175,31 @@ const getProductReviewStats = async (req, res) => {
         // Convert productId to ObjectId
         const objectId = new mongoose.Types.ObjectId(productId);
 
+        // Check if product exists
+        const product = await productModel.findById(objectId);
+        if (!product) {
+            return res.status(404).json({ success: false, message: "Product not found" });
+        }
+
         // Aggregate reviews for the product
         const stats = await reviewModel.aggregate([
-            { $match: { productId: objectId } }, // Match reviews for the specific product
+            { $match: { productId: objectId } },
             {
                 $group: {
                     _id: "$productId",
-                    averageRating: { $avg: "$rating" }, // Calculate average rating
-                    totalReviews: { $sum: 1 }, // Count total reviews
-                },
-            },
+                    averageRating: { $avg: "$rating" },
+                    totalReviews: { $sum: 1 }
+                }
+            }
         ]);
 
-        if (stats.length === 0) {
-            return res.status(404).json({ success: false, message: "No reviews found for this product" });
-        }
-
-        res.status(200).json({
+        // Return stats, even if no reviews exist
+        return res.status(200).json({
             success: true,
-            stats: stats[0], // Return the aggregated stats
+            stats: stats.length > 0 ? stats[0] : {
+                averageRating: 0,
+                totalReviews: 0
+            }
         });
     } catch (error) {
         console.error("Error in getProductReviewStats:", error);

@@ -15,10 +15,14 @@ import adminRouter from './routes/adminRoute.js';
 import inventoryRouter from './routes/inventoryRoute.js';
 import emailRouter from './routes/emailRoute.js';
 import recommendationRoute from './routes/recommendationRoute.js';
+import chatbotRoute from './routes/chatbotRoute.js';
+import mongoose from 'mongoose';
 
 // App config
 const app = express();
 const port = process.env.PORT;
+
+// Connect to MongoDB and Cloudinary
 connectDB();
 connectCloudinary();
 
@@ -79,6 +83,27 @@ app.use('/api/admin', adminRouter);
 app.use('/api/inventory', inventoryRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/recommendations', recommendationRoute);
+app.use('/api/chatbot', chatbotRoute);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        service: 'trendify-backend',
+        environment: process.env.NODE_ENV,
+        mongoStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Server error:', err);
+    res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? err.message : 'An error occurred'
+    });
+});
 
 app.get('/', (req, res) => {
     res.send("API working.");

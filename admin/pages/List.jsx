@@ -446,7 +446,9 @@ const List = ({ token }) => {
 													<img className={`h-8 w-8 sm:h-10 sm:w-10 rounded-md object-cover border ${!item.isActive ? 'grayscale' : ''}`} src={item.image?.[0]} alt={item.name} />
 												</div>
 												<div className="ml-3 sm:ml-4">
-													<div className={`text-sm font-medium ${!item.isActive ? 'text-gray-500' : 'text-gray-900'}`}>{item.name}</div>
+													<div className={`text-sm font-medium ${!item.isActive ? 'text-gray-500' : 'text-gray-900'}`}>
+														{item.name.length > 30 ? `${item.name.substring(0, 30)}...` : item.name}
+													</div>
 													<div className="text-xs text-gray-500 hidden sm:block">{item.sizes?.join(", ") || "No sizes"}</div>
 
 													{/* Mobile-only price and stock */}

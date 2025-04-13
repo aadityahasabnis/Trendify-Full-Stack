@@ -23,6 +23,7 @@ import NewReleasesPage from "./pages/NewReleasesPage";
 import MoversShakersPage from "./pages/MoversShakersPage";
 import { Toaster } from 'react-hot-toast';
 import LoadingSpinner from './components/LoadingSpinner';
+import Chatbot from './components/Chatbot';
 
 // Lazy load pages
 const HomeLazy = React.lazy(() => import('./pages/Home'));
@@ -72,6 +73,7 @@ function App() {
       </main>
       <Footer />
       <ToastContainer />
+      <Chatbot />
     </div>
   );
 }

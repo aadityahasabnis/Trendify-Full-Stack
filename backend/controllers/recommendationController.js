@@ -4,6 +4,14 @@ import orderModel from '../models/orderModel.js';
 import productModel from '../models/productModel.js';
 import cartModel from '../models/cartModel.js';
 import { Category, Subcategory } from '../models/categoryModel.js';
+import OpenAI from 'openai';
+import { asyncHandler } from '../middleware/asyncHandler.js';
+
+// Initialize OpenAI client with NVIDIA API
+const openai = new OpenAI({
+    apiKey: process.env.NVIDIA_API_KEY,
+    baseURL: 'https://integrate.api.nvidia.com/v1',
+});
 
 export const getPersonalizedRecommendations = async (req, res) => {
     try {
@@ -243,4 +251,185 @@ const getStockStatus = (stock) => {
     } else {
         return 'In stock';
     }
-}; 
+};
+
+// Function to get detailed product data
+const getProductData = async (productId) => {
+    try {
+        const product = await productModel.findById(productId)
+            .populate('categoryId', 'name slug')
+            .populate('subcategoryId', 'name slug')
+            .lean();
+
+        if (!product) return null;
+
+        return {
+            name: product.name,
+            description: product.description,
+            price: product.price,
+            category: product.categoryId?.name || 'Unknown Category',
+            subcategory: product.subcategoryId?.name || 'Unknown Subcategory',
+            features: product.features || [],
+            tags: product.tags || [],
+            rating: product.rating || 0,
+            reviews: product.reviews || [],
+            inStock: product.stock > 0,
+            discount: product.discount || 0,
+            bestseller: product.bestseller || false,
+            stock: product.stock || 0
+        };
+    } catch (error) {
+        console.error('Error fetching product data:', error);
+        return null;
+    }
+};
+
+// Function to get all products for analysis
+const getAllProducts = async () => {
+    try {
+        const products = await productModel.find({})
+            .populate('categoryId', 'name slug')
+            .populate('subcategoryId', 'name slug')
+            .select('name description price image categoryId subcategoryId bestseller stock sales isActive')
+            .lean();
+
+        return products.map(product => ({
+            _id: product._id,
+            name: product.name,
+            description: product.description,
+            price: product.price,
+            image: product.image,
+            category: product.categoryId?.name || 'Unknown Category',
+            subcategory: product.subcategoryId?.name || 'Unknown Subcategory',
+            bestseller: product.bestseller || false,
+            stock: product.stock || 0,
+            sales: product.sales || 0,
+            isActive: product.isActive !== false
+        }));
+    } catch (error) {
+        console.error('Error fetching all products:', error);
+        return [];
+    }
+};
+
+// Function to analyze products and find related items
+const analyzeRelatedProducts = async (currentProduct, allProducts) => {
+    try {
+        // Prepare product data for AI analysis
+        const productData = {
+            currentProduct,
+            allProducts: allProducts.filter(p => p._id.toString() !== currentProduct._id.toString())
+        };
+
+        // Create prompt for AI analysis
+        const prompt = `Analyze the following product data and find the most related products based on:
+1. Similar category and subcategory
+2. Similar features and tags
+3. Similar price range
+4. Complementary products
+5. Popular combinations
+6. Customer preferences from reviews
+
+Current Product:
+${JSON.stringify(currentProduct, null, 2)}
+
+Available Products:
+${JSON.stringify(productData.allProducts, null, 2)}
+
+Return a list of 6 most related product IDs in order of relevance. Format the response as a JSON array of product IDs only.`;
+
+        // Get AI analysis
+        const completion = await openai.chat.completions.create({
+            model: "nvidia/llama-3.1-nemotron-70b-instruct",
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a product recommendation system. Analyze product data and return related product IDs in JSON format."
+                },
+                {
+                    role: "user",
+                    content: prompt
+                }
+            ],
+            temperature: 0.7,
+            max_tokens: 500,
+            response_format: { type: "json_object" }
+        });
+
+        // Parse the response
+        const response = JSON.parse(completion.choices[0].message.content);
+        return response.relatedProducts || [];
+    } catch (error) {
+        console.error('Error analyzing related products:', error);
+        return [];
+    }
+};
+
+// Get related products endpoint
+export const getRelatedProducts = asyncHandler(async (req, res) => {
+    try {
+        const { productId } = req.params;
+
+        // Get current product data
+        const currentProduct = await productModel.findById(productId)
+            .populate('categoryId', 'name slug')
+            .populate('subcategoryId', 'name slug')
+            .select('name description price image categoryId subcategoryId bestseller stock sales isActive')
+            .lean();
+
+        if (!currentProduct) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+
+        // Get related products based on category and subcategory
+        const relatedProducts = await productModel.find({
+            _id: { $ne: productId },
+            categoryId: currentProduct.categoryId._id,
+            isActive: true
+        })
+            .populate('categoryId', 'name slug')
+            .populate('subcategoryId', 'name slug')
+            .select('name description price image categoryId subcategoryId bestseller stock sales isActive')
+            .limit(8)
+            .lean();
+
+        // If not enough related products, get more from the same subcategory
+        if (relatedProducts.length < 4) {
+            const additionalProducts = await productModel.find({
+                _id: { $nin: [...relatedProducts.map(p => p._id), productId] },
+                subcategoryId: currentProduct.subcategoryId._id,
+                isActive: true
+            })
+                .populate('categoryId', 'name slug')
+                .populate('subcategoryId', 'name slug')
+                .select('name description price image categoryId subcategoryId bestseller stock sales isActive')
+                .limit(8 - relatedProducts.length)
+                .lean();
+
+            relatedProducts.push(...additionalProducts);
+        }
+
+        // Format the image URLs
+        const formattedProducts = relatedProducts.map(product => ({
+            ...product,
+            image: Array.isArray(product.image) && product.image.length > 0
+                ? product.image[0]
+                : 'https://res.cloudinary.com/dn2rlrfwt/image/upload/v1712400000/default-product-image.jpg'
+        }));
+
+        res.json({
+            success: true,
+            relatedProducts: formattedProducts
+        });
+    } catch (error) {
+        console.error('Error getting related products:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error getting related products',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        });
+    }
+}); 
