@@ -699,22 +699,21 @@ const Product = () => {
 			{showStickyAdd && (
 				<div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t p-4 z-40">
 					<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-						<div className="flex items-center justify-between">
-							<div className="flex items-center space-x-4">
-								<img src={image} alt={productData.name} className="w-16 h-16 object-cover rounded" />
-								<div>
-									<h3 className="text-sm font-medium text-gray-900 line-clamp-1 md:line-clamp-none">
-										{productData.name.split(' ').slice(0, 3).join(' ')}
-										{productData.name.split(' ').length > 3 && <span className="md:hidden">...</span>}
+						<div className="flex flex-col md:flex-row items-center justify-between gap-2">
+							<div className="flex items-center space-x-4 w-full md:w-auto">
+								<img src={image} alt={productData.name} className="w-12 h-12 md:w-16 md:h-16 object-cover rounded" />
+								<div className="flex-1 min-w-0">
+									<h3 className="text-sm font-medium text-gray-900 truncate">
+										{productData.name}
 									</h3>
 									<p className="text-sm font-bold text-gray-900">{currency}{productData.price}</p>
 								</div>
 							</div>
-							<div className="flex items-center space-x-4">
+							<div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
 								{productData.sizes && productData.sizes.length > 0 && (
-									<div className="flex items-center space-x-2">
-										<label className="text-sm font-medium text-gray-700">Size:</label>
-										<div className="flex space-x-2">
+									<div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
+										<label className="text-sm font-medium text-gray-700 whitespace-nowrap">Size:</label>
+										<div className="flex flex-wrap gap-1 justify-center md:justify-start">
 											{productData.sizes.map((item) => (
 												<button
 													key={item}
@@ -745,7 +744,7 @@ const Product = () => {
 										}
 									}}
 									disabled={productData.sizes && productData.sizes.length > 0 ? !size : false}
-									className="bg-orange-500 text-white px-6 py-2 rounded-md hover:bg-orange-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+									className="w-full md:w-auto bg-orange-500 text-white px-6 py-2 rounded-md hover:bg-orange-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
 								>
 									Add to Cart
 								</button>
