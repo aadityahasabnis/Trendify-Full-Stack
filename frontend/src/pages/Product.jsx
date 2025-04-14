@@ -13,6 +13,7 @@ import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 import { FacebookShareButton, TwitterShareButton, PinterestShareButton } from 'react-share';
 import { toast } from 'react-hot-toast';
+import useScrollToTop from '../hooks/useScrollToTop';
 
 
 // Breadcrumb Component
@@ -223,6 +224,7 @@ const Lightbox = ({ isOpen, onClose, images, currentIndex, setCurrentIndex }) =>
 };
 
 const Product = () => {
+	useScrollToTop();
 	const { productId } = useParams();
 	const { currency, addToCart, backendUrl, token } = useContext(ShopContext);
 	const [productData, setProductData] = useState(null);
@@ -573,25 +575,27 @@ const Product = () => {
 						</div>
 					)}
 
-					{/* Size Selection */}
-					<div className="space-y-3">
-						<label className="block text-sm font-medium text-gray-700">Select Size</label>
-						<div className="grid grid-cols-4 gap-2">
-							{productData.sizes.map((item) => (
-								<button
-									key={item}
-									onClick={() => setSize(item)}
-									className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200
-										${item === size
-											? 'bg-orange-500 text-white'
-											: 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-										}`}
-								>
-									{item}
-								</button>
-							))}
+					{/* Size Selection - Only show if sizes are available */}
+					{productData.sizes && productData.sizes.length > 0 && (
+						<div className="space-y-3">
+							<label className="block text-sm font-medium text-gray-700">Select Size</label>
+							<div className="grid grid-cols-4 gap-2">
+								{productData.sizes.map((item) => (
+									<button
+										key={item}
+										onClick={() => setSize(item)}
+										className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200
+											${item === size
+												? 'bg-orange-500 text-white'
+												: 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+											}`}
+									>
+										{item}
+									</button>
+								))}
+							</div>
 						</div>
-					</div>
+					)}
 
 					{/* Quantity Selector */}
 					<div className="space-y-3">
@@ -604,40 +608,43 @@ const Product = () => {
 					</div>
 
 					{/* Add to Cart and Buy Now Buttons */}
-					<div className="space-y-4 flex flex-row gap-4" ref={addToCartRef}>
+					<div className="flex flex-row gap-4" ref={addToCartRef}>
 						<button
 							onClick={() => {
-								if (size) {
-									addToCart(productId, size, quantity);
+								if (productData.sizes && productData.sizes.length > 0) {
+									if (size) {
+										addToCart(productId, size, quantity);
+									} else {
+										toast.error('Please select a size');
+									}
 								} else {
-									toast.error('Please select a size');
+									addToCart(productId, null, quantity);
 								}
 							}}
-							disabled={!size || !(productData.stockStatus?.inStock ?? (productData.stock > 0))}
+							disabled={productData.sizes && productData.sizes.length > 0 ? !size : false}
 							className={`w-full py-3 px-8 rounded-md text-white text-lg font-medium transition-all duration-200
-								${!size || !(productData.stockStatus?.inStock ?? (productData.stock > 0))
-									? 'bg-gray-400 cursor-not-allowed'
-									: 'bg-orange-500 hover:bg-orange-600'
-								}`}
+								${productData.sizes && productData.sizes.length > 0 ? (!size ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600') : 'bg-orange-500 hover:bg-orange-600'}`}
 						>
 							<FaShoppingCart className="inline-block mr-2" />
 							Add to Cart
 						</button>
 						<button
 							onClick={() => {
-								if (size) {
-									addToCart(productId, size, quantity);
-									navigate('/cart');
+								if (productData.sizes && productData.sizes.length > 0) {
+									if (size) {
+										addToCart(productId, size, quantity);
+										navigate('/cart');
+									} else {
+										toast.error('Please select a size');
+									}
 								} else {
-									toast.error('Please select a size');
+									addToCart(productId, null, quantity);
+									navigate('/cart');
 								}
 							}}
-							disabled={!size || !(productData.stockStatus?.inStock ?? (productData.stock > 0))}
+							disabled={productData.sizes && productData.sizes.length > 0 ? !size : false}
 							className={`w-full py-3 px-8 rounded-md text-white text-lg font-medium transition-all duration-200
-								${!size || !(productData.stockStatus?.inStock ?? (productData.stock > 0))
-									? 'bg-gray-400 cursor-not-allowed'
-									: 'bg-blue-600 hover:bg-blue-700'
-								}`}
+								${productData.sizes && productData.sizes.length > 0 ? (!size ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700') : 'bg-blue-600 hover:bg-blue-700'}`}
 						>
 							<FaBolt className="inline-block mr-2" />
 							Buy Now
@@ -671,20 +678,46 @@ const Product = () => {
 									<p className="text-sm font-bold text-gray-900">{currency}{productData.price}</p>
 								</div>
 							</div>
-							<button
-								onClick={() => {
-									if (size) {
-										addToCart(productId, size, quantity);
-									} else {
-										toast.error('Please select a size');
-										addToCartRef.current?.scrollIntoView({ behavior: 'smooth' });
-									}
-								}}
-								disabled={!size || !(productData.stockStatus?.inStock ?? (productData.stock > 0))}
-								className="bg-orange-500 text-white px-6 py-2 rounded-md hover:bg-orange-600 transition-colors"
-							>
-								Add to Cart
-							</button>
+							<div className="flex items-center space-x-4">
+								{productData.sizes && productData.sizes.length > 0 && (
+									<div className="flex items-center space-x-2">
+										<label className="text-sm font-medium text-gray-700">Size:</label>
+										<div className="flex space-x-2">
+											{productData.sizes.map((item) => (
+												<button
+													key={item}
+													onClick={() => setSize(item)}
+													className={`px-2 py-1 text-xs font-medium rounded-md transition-all duration-200
+														${item === size
+															? 'bg-orange-500 text-white'
+															: 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+														}`}
+												>
+													{item}
+												</button>
+											))}
+										</div>
+									</div>
+								)}
+								<button
+									onClick={() => {
+										if (productData.sizes && productData.sizes.length > 0) {
+											if (size) {
+												addToCart(productId, size, quantity);
+											} else {
+												toast.error('Please select a size');
+												addToCartRef.current?.scrollIntoView({ behavior: 'smooth' });
+											}
+										} else {
+											addToCart(productId, null, quantity);
+										}
+									}}
+									disabled={productData.sizes && productData.sizes.length > 0 ? !size : false}
+									className="bg-orange-500 text-white px-6 py-2 rounded-md hover:bg-orange-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+								>
+									Add to Cart
+								</button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -717,29 +750,7 @@ const Product = () => {
 								}`
 							}
 						>
-							Specifications
-						</Tab>
-						<Tab
-							className={({ selected }) =>
-								`w-full rounded-lg py-2.5 text-sm font-medium leading-5
-								${selected
-									? 'bg-white text-orange-600 shadow'
-									: 'text-gray-700 hover:bg-white/[0.12] hover:text-orange-600'
-								}`
-							}
-						>
 							Reviews ({totalReviews})
-						</Tab>
-						<Tab
-							className={({ selected }) =>
-								`w-full rounded-lg py-2.5 text-sm font-medium leading-5
-								${selected
-									? 'bg-white text-orange-600 shadow'
-									: 'text-gray-700 hover:bg-white/[0.12] hover:text-orange-600'
-								}`
-							}
-						>
-							Q&A
 						</Tab>
 					</Tab.List>
 					<Tab.Panels className="mt-8">
@@ -748,16 +759,6 @@ const Product = () => {
 								<p className="text-gray-600 whitespace-pre-line">
 									{productData.description}
 								</p>
-							</div>
-						</Tab.Panel>
-						<Tab.Panel className="rounded-xl bg-white p-3">
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-								{productData.specifications?.map((spec, index) => (
-									<div key={index} className="border-b pb-4">
-										<h4 className="text-sm font-medium text-gray-900">{spec.name}</h4>
-										<p className="mt-1 text-sm text-gray-500">{spec.value}</p>
-									</div>
-								))}
 							</div>
 						</Tab.Panel>
 						<Tab.Panel className="rounded-xl bg-white p-3">
@@ -844,14 +845,6 @@ const Product = () => {
 								</div>
 							</div>
 						</Tab.Panel>
-						<Tab.Panel className="rounded-xl bg-white p-3">
-							<div className="text-center py-8">
-								<h3 className="text-lg font-medium text-gray-900">Have a question?</h3>
-								<p className="mt-2 text-sm text-gray-500">
-									Our support team is here to help. Contact us through the live chat or email us at support@example.com
-								</p>
-							</div>
-						</Tab.Panel>
 					</Tab.Panels>
 				</Tab.Group>
 			</div>
@@ -867,7 +860,6 @@ const Product = () => {
 
 			{/* Related Products */}
 			<div className="mt-16">
-				<h2 className="text-2xl font-bold text-gray-900 mb-8">You May Also Like</h2>
 				<RelatedProducts category={productData.category} subCategory={productData.subCategory} />
 			</div>
 		</div>

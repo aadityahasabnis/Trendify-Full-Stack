@@ -5,9 +5,10 @@ import { assets } from '../assets/frontend_assets/assets';
 import { ShopContext } from '../context/ShopContext';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
+import useScrollToTop from '../hooks/useScrollToTop';
 
 const PlaceOrder = () => {
-
+	useScrollToTop();
 	const [method, setMethod] = useState('cod');
 	const { navigate, backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
 	const [formData, setFormData] = useState({

@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import Title from '../components/Title';
 import NewsletterBox from '../components/NewsletterBox';
 import { assets } from '../assets/frontend_assets/assets';
+import useScrollToTop from '../hooks/useScrollToTop';
 
 const Contact = () => {
+  useScrollToTop();
 
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');

@@ -5,8 +5,10 @@ import { FaTrash } from 'react-icons/fa';
 import { ShopContext } from '../context/ShopContext';
 import Title from '../components/Title';
 import CartTotal from '../components/CartTotal';
+import useScrollToTop from '../hooks/useScrollToTop';
 
 const Cart = () => {
+	useScrollToTop();
 	const { products, currency, cartItems, updateQuantity, removeFromCart, isLoading, clearCart } = useContext(ShopContext);
 	const [cartData, setCartData] = useState([]);
 	const isInitialMount = useRef(true);

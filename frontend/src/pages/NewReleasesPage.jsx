@@ -4,8 +4,10 @@ import ProductGrid from '../components/ProductGrid';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import TrendingPageHeader from '../components/TrendingPageHeader';
+import useScrollToTop from '../hooks/useScrollToTop';
 
 const NewReleasesPage = () => {
+    useScrollToTop();
     const { backendUrl } = useContext(ShopContext);
     const [newProducts, setNewProducts] = useState([]);
     const [loading, setLoading] = useState(true);

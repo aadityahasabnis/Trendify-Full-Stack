@@ -3,6 +3,7 @@ import { ShopContext } from '../context/ShopContext'
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
+import useScrollToTop from '../hooks/useScrollToTop';
 
 // Input Field Component
 const InputField = ({ type, value, onChange, placeholder, required, icon, error }) => {
@@ -61,6 +62,7 @@ const Button = ({ children, onClick, type = 'button', className = '', disabled =
 };
 
 const Login = () => {
+	useScrollToTop();
 	const location = useLocation();
 	const [currentState, setCurrentState] = useState(location.state?.initialState || 'Login')
 	const { token, setToken, backendUrl } = useContext(ShopContext);

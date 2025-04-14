@@ -3,8 +3,10 @@ import { useParams } from 'react-router-dom';
 import { ShopContext } from '../context/ShopContext';
 import ProductGrid from '../components/ProductGrid';
 import axios from 'axios';
+import useScrollToTop from '../hooks/useScrollToTop';
 
 const CategoryPage = () => {
+    useScrollToTop();
     const { categorySlug } = useParams();
     const { backendUrl } = useContext(ShopContext);
     const [categoryProducts, setCategoryProducts] = useState([]);

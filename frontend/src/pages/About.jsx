@@ -2,8 +2,11 @@ import React from 'react';
 import Title from '../components/Title';
 import NewsletterBox from '../components/NewsletterBox';
 import { assets } from '../assets/frontend_assets/assets';
+import useScrollToTop from '../hooks/useScrollToTop';
 
 const About = () => {
+	useScrollToTop();
+
 	return (
 		<div className="container mx-auto px-4 pb-10">
 			<div className="text-2xl text-center pt-8 border-t">
@@ -38,7 +41,7 @@ const About = () => {
 				<Title text1="WHY" text2="CHOOSE US" />
 			</div>
 			<div className=" text-center">
-				
+
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 					<div className="p-6 bg-white rounded-lg shadow-md">
 						<h3 className="text-xl font-semibold mb-4 text-gray-700">Quality Assurance</h3>

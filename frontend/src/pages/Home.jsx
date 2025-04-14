@@ -8,8 +8,11 @@ import PersonalizedRecommendations from "../components/PersonalizedRecommendatio
 import SecondaryNav from "../components/SecondaryNav";
 import CategoriesGrid from "../components/CategoriesGrid";
 import { assets } from "../assets/frontend_assets/assets";
+import useScrollToTop from '../hooks/useScrollToTop';
 
 const Home = () => {
+    useScrollToTop();
+
     return (
         <div className="min-h-screen">
             {/* Secondary Navigation */}
