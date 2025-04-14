@@ -5,7 +5,7 @@ import RelatedProducts from '../components/RelatedProducts';
 import CustomMagnifier from '../components/CustomMagnifier';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
-import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart, FaBolt, FaFacebookF, FaTwitter, FaPinterestP, FaWhatsapp, FaLink } from 'react-icons/fa';
+import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart, FaBolt, FaFacebookF, FaTwitter, FaPinterestP, FaWhatsapp, FaLink, FaHeart, FaRegHeart } from 'react-icons/fa';
 import { IoMdCheckmark, IoIosArrowBack, IoIosArrowForward } from 'react-icons/io';
 import { Tab } from '@headlessui/react';
 import Slider from 'react-slick';
@@ -15,7 +15,6 @@ import { FacebookShareButton, TwitterShareButton, PinterestShareButton } from 'r
 import { toast } from 'react-hot-toast';
 import useScrollToTop from '../hooks/useScrollToTop';
 import { Helmet } from 'react-helmet-async';
-
 
 // Breadcrumb Component
 const Breadcrumb = ({ category, name }) => (
@@ -78,7 +77,7 @@ const TrustBadges = () => (
 );
 
 // Social Share Component
-const SocialShare = ({ url, title, image, price, currency, sizes }) => {
+const SocialShare = ({ url, title, price, currency, sizes, productId, backendUrl }) => {
 	const [isCopied, setIsCopied] = useState(false);
 
 	const handleCopyLink = () => {
@@ -91,24 +90,11 @@ const SocialShare = ({ url, title, image, price, currency, sizes }) => {
 		const sizeText = sizes && sizes.length > 0 ? `\n*Sizes:* ${sizes.join(', ')}` : '';
 		const message = `*🛍️Check out this product on Trendify!*\n\n*${title}* \n*Price:* ${currency}${price}${sizeText}\n\n_${url}_`;
 
-		// Ensure the image URL is absolute and properly formatted
-		const imageUrl = image.startsWith('http') ? image : `${window.location.origin}${image}`;
+		// Use the OG route for sharing
+		const shareUrl = `${backendUrl}/api/product/og/${productId}`;
+		const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}&source=${encodeURIComponent(shareUrl)}`;
 
-		// Use WhatsApp's share API with proper encoding
-		const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}&source=${encodeURIComponent(imageUrl)}`;
-
-		// Create a temporary link to force image download
-		const tempLink = document.createElement('a');
-		tempLink.href = imageUrl;
-		tempLink.download = 'product-image.jpg';
-		document.body.appendChild(tempLink);
-		tempLink.click();
-		document.body.removeChild(tempLink);
-
-		// Open WhatsApp after a short delay to allow image download
-		setTimeout(() => {
-			window.open(whatsappUrl, '_blank');
-		}, 500);
+		window.open(whatsappUrl, '_blank');
 	};
 
 	return (
@@ -285,6 +271,7 @@ const Product = () => {
 	const [showStickyAdd, setShowStickyAdd] = useState(false);
 	const addToCartRef = useRef(null);
 	const productContentRef = useRef(null);
+	const navigate = useNavigate();
 
 	// New state variables
 	const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -485,8 +472,6 @@ const Product = () => {
 		fetchProduct();
 		fetchReviews();
 	}, [productId, backendUrl]);
-
-	const navigate = useNavigate();
 
 	if (isLoading) {
 		return (
@@ -715,10 +700,11 @@ const Product = () => {
 						<SocialShare
 							url={window.location.href}
 							title={productData.name}
-							image={productData.image[0]}
 							price={productData.price}
 							currency={currency}
 							sizes={productData.sizes}
+							productId={productId}
+							backendUrl={backendUrl}
 						/>
 					</div>
 				</div>
