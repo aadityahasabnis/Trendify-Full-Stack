@@ -1,6 +1,5 @@
 import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from "react-router-dom";
-import { HelmetProvider } from 'react-helmet-async';
 import Home from "./pages/Home";
 import Collection from "./pages/Collection";
 import About from "./pages/About";
@@ -32,50 +31,48 @@ const UserProfileLazy = React.lazy(() => import('./pages/UserProfile'));
 
 function App() {
   return (
-    <HelmetProvider>
-      <div className="flex flex-col min-h-screen">
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: '#333',
-              color: '#fff',
-              padding: '12px 24px',
-              borderRadius: '8px',
-            },
-          }}
-        />
-        <Navbar />
-        <main className="flex-grow pt-16 px-4">
-          <Suspense fallback={<LoadingSpinner />}>
-            <Routes>
-              <Route path="/" element={<HomeLazy />} />
-              <Route path="/collections" element={<Collection />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/product/:productId" element={<ProductLazy />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/login" element={<LoginLazy />} />
-              <Route path="/place-order" element={<PlaceOrder />} />
-              <Route path="/checkout" element={<PlaceOrder />} />
-              <Route path="/orders" element={<Orders />} />
-              <Route path="/verify" element={<Verify />} />
-              <Route path="/profile" element={<UserProfileLazy />} />
-              <Route path="/reset-password/:token" element={<ResetPassword />} />
-              <Route path="/category/:categorySlug" element={<CategoryPage />} />
-              <Route path="/category/:categorySlug/:subcategorySlug" element={<SubcategoryPage />} />
-              <Route path="/best-sellers" element={<BestsellersPage />} />
-              <Route path="/new-releases" element={<NewReleasesPage />} />
-              <Route path="/movers-shakers" element={<MoversShakersPage />} />
-              <Route path="/shop" element={<Navigate to="/collections" replace />} />
-            </Routes>
-          </Suspense>
-        </main>
-        <Footer />
-        <Chatbot />
-      </div>
-    </HelmetProvider>
+    <div className="flex flex-col min-h-screen">
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#333',
+            color: '#fff',
+            padding: '12px 24px',
+            borderRadius: '8px',
+          },
+        }}
+      />
+      <Navbar />
+      <main className="flex-grow pt-16 px-4">
+        <Suspense fallback={<LoadingSpinner />}>
+          <Routes>
+            <Route path="/" element={<HomeLazy />} />
+            <Route path="/collections" element={<Collection />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/product/:productId" element={<ProductLazy />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/login" element={<LoginLazy />} />
+            <Route path="/place-order" element={<PlaceOrder />} />
+            <Route path="/checkout" element={<PlaceOrder />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/verify" element={<Verify />} />
+            <Route path="/profile" element={<UserProfileLazy />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
+            <Route path="/category/:categorySlug" element={<CategoryPage />} />
+            <Route path="/category/:categorySlug/:subcategorySlug" element={<SubcategoryPage />} />
+            <Route path="/best-sellers" element={<BestsellersPage />} />
+            <Route path="/new-releases" element={<NewReleasesPage />} />
+            <Route path="/movers-shakers" element={<MoversShakersPage />} />
+            <Route path="/shop" element={<Navigate to="/collections" replace />} />
+          </Routes>
+        </Suspense>
+      </main>
+      <Footer />
+      <Chatbot />
+    </div>
   );
 }
 
