@@ -87,9 +87,9 @@ const SocialShare = ({ url, title, image, price, currency, sizes }) => {
 	};
 
 	const handleWhatsAppShare = () => {
-		const sizeText = sizes && sizes.length > 0 ? `\nSizes: ${sizes.join(', ')}` : '';
-		const message = `Check out this product on Trendify!\n\n${title}\nPrice: ${currency}${price}${sizeText}\n\n${url}`;
-		const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+		const sizeText = sizes && sizes.length > 0 ? `\n*Sizes:* ${sizes.join(', ')}` : '';
+		const message = `*Check out this product on Trendify!*\n\n*${title}*\n*Price:* ${currency}${price}${sizeText}\n\n_${url}_`;
+		const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}&media=${encodeURIComponent(image)}`;
 		window.open(whatsappUrl, '_blank');
 	};
 
