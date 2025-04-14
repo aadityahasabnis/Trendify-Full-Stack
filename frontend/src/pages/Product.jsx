@@ -88,8 +88,13 @@ const SocialShare = ({ url, title, image, price, currency, sizes }) => {
 
 	const handleWhatsAppShare = () => {
 		const sizeText = sizes && sizes.length > 0 ? `\n*Sizes:* ${sizes.join(', ')}` : '';
-		const message = `*Check out this product on Trendify!*\n\n*${title}*\n*Price:* ${currency}${price}${sizeText}\n\n_${url}_`;
-		const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}&media=${encodeURIComponent(image)}`;
+		const message = `*🛍️Check out this product on Trendify!*\n\n*${title}* \n*Price:* ${currency}${price}${sizeText}\n\n_${url}_`;
+
+		// Ensure the image URL is absolute and properly formatted
+		const imageUrl = image.startsWith('http') ? image : `${window.location.origin}${image}`;
+
+		// Use WhatsApp's share API with proper encoding
+		const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}&source=${encodeURIComponent(imageUrl)}`;
 		window.open(whatsappUrl, '_blank');
 	};
 
