@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { backendUrl } from '../src/App'; // Adjust path if necessary, removed unused currency
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 
 const UserDetailsModal = ({ userDetails, onClose, token }) => {
     const [isSubscribed, setIsSubscribed] = useState(userDetails?.newsletter?.isSubscribed || false);

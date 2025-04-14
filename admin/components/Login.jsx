@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import axios from 'axios'
 import { backendUrl } from '../src/App';
-import { toast } from 'react-toastify';
+import { toast } from 'react-hot-toast';
 
 // Input Field Component
 const InputField = ({ type, value, onChange, placeholder, required, icon, error }) => {

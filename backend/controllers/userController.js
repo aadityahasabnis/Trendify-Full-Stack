@@ -8,7 +8,6 @@ import cartModel from "../models/cartModel.js";
 import newsletterModel from "../models/newsletterModel.js";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
-import { toast } from "react-toastify";
 import mongoose from "mongoose";
 
 const createToken = (id) => {
@@ -334,7 +333,6 @@ const requestPasswordReset = async (req, res) => {
 
         // Send email
         await transporter.sendMail(mailOptions);
-        toast.success("Email sent!");
 
         res.json({
             success: true,
