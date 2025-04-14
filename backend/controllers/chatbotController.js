@@ -401,7 +401,7 @@ ${productDetails.discount > 0 ? `Discount: ${productDetails.discount}% off` : ''
                         content: fullPrompt
                     }
                 ],
-                temperature: 1,
+                temperature: 0.5,
                 top_p: 1,
                 max_tokens: 512,
                 stream: false
