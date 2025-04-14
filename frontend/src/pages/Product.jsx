@@ -5,7 +5,7 @@ import RelatedProducts from '../components/RelatedProducts';
 import CustomMagnifier from '../components/CustomMagnifier';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
-import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart, FaBolt, FaFacebookF, FaTwitter, FaPinterestP } from 'react-icons/fa';
+import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart, FaBolt, FaFacebookF, FaTwitter, FaPinterestP, FaWhatsapp, FaLink } from 'react-icons/fa';
 import { IoMdCheckmark, IoIosArrowBack, IoIosArrowForward } from 'react-icons/io';
 import { Tab } from '@headlessui/react';
 import Slider from 'react-slick';
@@ -77,26 +77,50 @@ const TrustBadges = () => (
 );
 
 // Social Share Component
-const SocialShare = ({ url, title, image }) => (
-	<div className="flex items-center space-x-4 mt-6">
-		<span className="text-sm font-medium text-gray-700">Share:</span>
-		<FacebookShareButton url={url} quote={title}>
-			<div className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700">
-				<FaFacebookF size={16} />
-			</div>
-		</FacebookShareButton>
-		<TwitterShareButton url={url} title={title}>
-			<div className="p-2 bg-sky-500 text-white rounded-full hover:bg-sky-600">
-				<FaTwitter size={16} />
-			</div>
-		</TwitterShareButton>
-		<PinterestShareButton url={url} media={image} description={title}>
-			<div className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700">
-				<FaPinterestP size={16} />
-			</div>
-		</PinterestShareButton>
-	</div>
-);
+const SocialShare = ({ url, title, image, price, currency, sizes }) => {
+	const [isCopied, setIsCopied] = useState(false);
+
+	const handleCopyLink = () => {
+		navigator.clipboard.writeText(url);
+		setIsCopied(true);
+		setTimeout(() => setIsCopied(false), 2000);
+	};
+
+	const handleWhatsAppShare = () => {
+		const sizeText = sizes && sizes.length > 0 ? `\nSizes: ${sizes.join(', ')}` : '';
+		const message = `Check out this product on Trendify!\n\n${title}\nPrice: ${currency}${price}${sizeText}\n\n${url}`;
+		const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+		window.open(whatsappUrl, '_blank');
+	};
+
+	return (
+		<div className="flex items-center space-x-4 mt-6">
+			<span className="text-sm font-medium text-gray-700">Share:</span>
+			<FacebookShareButton url={url} quote={title}>
+				<div className="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700">
+					<FaFacebookF size={16} />
+				</div>
+			</FacebookShareButton>
+			<button
+				onClick={handleWhatsAppShare}
+				className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600"
+			>
+				<FaWhatsapp size={16} />
+			</button>
+			<button
+				onClick={handleCopyLink}
+				className="p-2 bg-gray-500 text-white rounded-full hover:bg-gray-600 relative"
+			>
+				<FaLink size={16} />
+				{isCopied && (
+					<span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded">
+						Link Copied!
+					</span>
+				)}
+			</button>
+		</div>
+	);
+};
 
 // Quantity Selector Component
 const QuantitySelector = ({ quantity, setQuantity, max }) => (
@@ -659,6 +683,9 @@ const Product = () => {
 						url={window.location.href}
 						title={productData.name}
 						image={productData.image[0]}
+						price={productData.price}
+						currency={currency}
+						sizes={productData.sizes}
 					/>
 				</div>
 			</div>
