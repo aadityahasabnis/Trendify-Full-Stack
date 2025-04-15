@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import Conversation from '../models/conversationModel.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import mongoose from 'mongoose';
+import axios from 'axios';
 
 // Initialize OpenAI client with NVIDIA API
 const openai = new OpenAI({
@@ -375,54 +376,47 @@ ${productDetails.discount > 0 ? `Discount: ${productDetails.discount}% off` : ''
         // Combine all contexts
         const fullPrompt = `${TRENDIFY_CONTEXT}\n\nCurrent Data:${dataContext}${userContext ? `\nUser Context: The user's name is ${userContext.name} and email is ${userContext.email}.` : ''}${historyContext}\n\nUser Question: ${message}\n\nAssistant:`;
 
+        // Try to get response from Ollama first
         try {
-            const completion = await openai.chat.completions.create({
-                model: "nvidia/llama-3.1-nemotron-70b-instruct",
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are a helpful assistant for Trendify, an e-commerce platform. Follow these response guidelines:
-                        1. Keep responses concise and to the point
-                        2. Use simple formatting without asterisks or markdown
-                        3. Break down information into short, easy-to-read sentences
-                        4. Focus on the most relevant information
-                        5. Use bullet points only when listing multiple items
-                        6. Keep responses under 3-4 sentences unless specifically asked for more details
-                        7. Use friendly, conversational tone
-                        8. Never use markdown formatting or special characters
-                        9. If user's name is available, address them by name in your response
-                        10. If user's name is not available, don't ask for it - just provide the requested information
-                        11. When discussing products, include key details like price and availability
-                        12. When discussing categories, mention the number of products available
-                        13. Use previous conversation context to provide more relevant answers`
-                    },
-                    {
-                        role: "user",
-                        content: fullPrompt
-                    }
-                ],
-                temperature: 0.5,
-                top_p: 1,
-                max_tokens: 512,
-                stream: false
+            console.log('Checking Ollama server...');
+            const ollamaCheck = await axios.get('http://localhost:11434/api/tags', { timeout: 2000 });
+            console.log('Ollama server status:', {
+                status: ollamaCheck.status,
+                models: ollamaCheck.data.models
             });
 
-            let response = completion.choices[0].message.content;
+            const ollamaResponse = await axios.post('http://localhost:11434/api/generate', {
+                model: 'llama3',
+                prompt: fullPrompt,
+                stream: false,
+                options: {
+                    temperature: 0.5,
+                    top_p: 0.5,
+                    num_predict: 50
+                }
+            }, {
+                timeout: 10000,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
 
-            // Format the response for better readability
+            let response = ollamaResponse.data.response;
+            console.log('Ollama response received successfully');
+
+            // Format the response
             response = response
-                .replace(/\*/g, '') // Remove existing asterisks
-                .replace(/\*\*/g, '') // Remove existing double asterisks
-                .replace(/\n\s*\n/g, '\n') // Remove extra newlines
-                .replace(/\[.*?\]/g, '') // Remove markdown links
-                .replace(/\(.*?\)/g, '') // Remove parentheses
+                .replace(/\*/g, '')
+                .replace(/\*\*/g, '')
+                .replace(/\n\s*\n/g, '\n')
+                .replace(/\[.*?\]/g, '')
+                .replace(/\(.*?\)/g, '')
                 .trim();
 
             // Add bold formatting to key points
             response = response
                 .split('\n')
                 .map(line => {
-                    // Add bold to important information
                     if (line.includes('Price:')) return `**${line}**`;
                     if (line.includes('Category:')) return `**${line}**`;
                     if (line.includes('Available:')) return `**${line}**`;
@@ -444,7 +438,7 @@ ${productDetails.discount > 0 ? `Discount: ${productDetails.discount}% off` : ''
             response = response.replace(/\n/g, '\n\n');
 
             // Add newsletter promotion after every 3rd message
-            const messageCount = conversationHistory.length + 1; // +1 for current message
+            const messageCount = conversationHistory.length + 1;
             if (messageCount % 3 === 0) {
                 response += "\n\n**Pro Tip:** Stay updated with our latest products and exclusive offers by subscribing to our newsletter! You'll get early access to sales, new arrivals, and special discounts.";
             }
@@ -462,17 +456,110 @@ ${productDetails.discount > 0 ? `Discount: ${productDetails.discount}% off` : ''
                 timestamp: new Date()
             });
 
-            res.json({
+            return res.json({
                 success: true,
                 response: response
             });
-        } catch (openaiError) {
-            console.error('OpenAI API error:', openaiError);
-            // Return a fallback response if OpenAI fails
-            res.json({
-                success: true,
-                response: "I apologize, but I'm having trouble connecting to the AI service right now. Please try again later or contact support if the issue persists."
-            });
+        } catch (ollamaError) {
+            console.log('Ollama response failed, trying NVIDIA AI...');
+            try {
+                const completion = await openai.chat.completions.create({
+                    model: "nvidia/llama-3.1-nemotron-70b-instruct",
+                    messages: [
+                        {
+                            role: "system",
+                            content: `You are a helpful assistant for Trendify, an e-commerce platform. Follow these response guidelines:
+                            1. Keep responses concise and to the point
+                            2. Use simple formatting without asterisks or markdown
+                            3. Break down information into short, easy-to-read sentences
+                            4. Focus on the most relevant information
+                            5. Use bullet points only when listing multiple items
+                            6. Keep responses under 3-4 sentences unless specifically asked for more details
+                            7. Use friendly, conversational tone
+                            8. Never use markdown formatting or special characters
+                            9. If user's name is available, address them by name in your response
+                            10. If user's name is not available, don't ask for it - just provide the requested information
+                            11. When discussing products, include key details like price and availability
+                            12. When discussing categories, mention the number of products available
+                            13. Use previous conversation context to provide more relevant answers`
+                        },
+                        {
+                            role: "user",
+                            content: fullPrompt
+                        }
+                    ],
+                    temperature: 0.5,
+                    top_p: 1,
+                    max_tokens: 512,
+                    stream: false
+                });
+
+                let response = completion.choices[0].message.content;
+                console.log('NVIDIA AI response received successfully');
+
+                // Format the response
+                response = response
+                    .replace(/\*/g, '')
+                    .replace(/\*\*/g, '')
+                    .replace(/\n\s*\n/g, '\n')
+                    .replace(/\[.*?\]/g, '')
+                    .replace(/\(.*?\)/g, '')
+                    .trim();
+
+                // Add bold formatting to key points
+                response = response
+                    .split('\n')
+                    .map(line => {
+                        if (line.includes('Price:')) return `**${line}**`;
+                        if (line.includes('Category:')) return `**${line}**`;
+                        if (line.includes('Available:')) return `**${line}**`;
+                        if (line.includes('Discount:')) return `**${line}**`;
+                        if (line.includes('Stock:')) return `**${line}**`;
+                        if (line.includes('Rating:')) return `**${line}**`;
+                        if (line.includes('Features:')) return `**${line}**`;
+                        return line;
+                    })
+                    .join('\n');
+
+                // If response is too long, truncate it
+                if (response.length > 300) {
+                    const sentences = response.split(/[.!?]+/);
+                    response = sentences.slice(0, 2).join('. ') + '.';
+                }
+
+                // Add spacing between sections
+                response = response.replace(/\n/g, '\n\n');
+
+                // Add newsletter promotion after every 3rd message
+                const messageCount = conversationHistory.length + 1;
+                if (messageCount % 3 === 0) {
+                    response += "\n\n**Pro Tip:** Stay updated with our latest products and exclusive offers by subscribing to our newsletter! You'll get early access to sales, new arrivals, and special discounts.";
+                }
+
+                // Save conversation
+                await saveConversation(userId, {
+                    role: 'user',
+                    content: message,
+                    timestamp: new Date()
+                });
+
+                await saveConversation(userId, {
+                    role: 'assistant',
+                    content: response,
+                    timestamp: new Date()
+                });
+
+                return res.json({
+                    success: true,
+                    response: response
+                });
+            } catch (nvidiaError) {
+                console.error('NVIDIA AI response failed:', nvidiaError);
+                return res.json({
+                    success: true,
+                    response: "I apologize, but I'm having trouble connecting to the AI service right now. Please try again later or contact support if the issue persists."
+                });
+            }
         }
     } catch (error) {
         console.error('Chat error:', error);
