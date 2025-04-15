@@ -205,59 +205,64 @@ export const getPersonalizedRecommendations = async (req, res) => {
             }))
         };
 
-        // Try to get recommendations from Ollama first
+        // Try to get recommendations from Ollama first (only in development)
         let recommendedProducts;
-        let recommendationSource = 'simple_algorithm'; // Default source
+        let recommendationSource = 'simple_algorithm';
 
-        try {
-            console.log('Step 7: Checking Ollama server...');
-            const ollamaCheck = await axios.get('http://localhost:11434/api/tags', { timeout: 2000 });
-            console.log('Step 7: Ollama server status:', {
-                status: ollamaCheck.status,
-                models: ollamaCheck.data.models
-            });
+        if (process.env.NODE_ENV === 'development') {
+            try {
+                console.log('Development environment: Trying Ollama...');
+                const ollamaCheck = await axios.get('http://localhost:11434/api/tags', { timeout: 2000 });
+                console.log('Ollama server status:', {
+                    status: ollamaCheck.status,
+                    models: ollamaCheck.data.models
+                });
 
-            console.log('Step 8: Preparing Ollama prompt...');
-            const ollamaPrompt = `Recommend 5 products for user ${userData.name} based on:
+                const ollamaPrompt = `Recommend 5 products for user ${userData.name} based on:
 - Categories: ${userData.preferences.categories.join(', ')}
 - Price range: $${userData.preferences.priceRange.min}-$${userData.preferences.priceRange.max}
 
 Return ONLY: {"recommendedProductIds": ["id1", "id2", "id3", "id4", "id5"]}`;
 
-            console.log('Step 9: Calling Ollama API...');
-            const ollamaResponse = await axios.post('http://localhost:11434/api/generate', {
-                model: 'tinyllama',
-                prompt: ollamaPrompt,
-                stream: false,
-                options: {
-                    temperature: 0.3,
-                    top_p: 0.5,
-                    num_predict: 50
-                }
-            }, {
-                timeout: 10000,
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+                const ollamaResponse = await axios.post('http://localhost:11434/api/generate', {
+                    model: 'tinyllama',
+                    prompt: ollamaPrompt,
+                    stream: false,
+                    options: {
+                        temperature: 0.5,
+                        top_p: 0.5,
+                        num_predict: 50
+                    }
+                }, {
+                    timeout: 10000,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
 
-            const recommendations = JSON.parse(ollamaResponse.data.response);
-            if (recommendations.recommendedProductIds && Array.isArray(recommendations.recommendedProductIds)) {
-                recommendedProducts = await productModel.find({
-                    _id: { $in: recommendations.recommendedProductIds }
-                })
-                    .populate('categoryId', 'name description')
-                    .populate('subcategoryId', 'name description')
-                    .map(product => ({
-                        ...product.toObject(),
-                        stockStatus: getStockStatus(product.stock)
-                    }));
-                recommendationSource = 'ollama';
-                console.log('Ollama recommendations generated successfully');
+                const recommendations = JSON.parse(ollamaResponse.data.response);
+                if (recommendations.recommendedProductIds && Array.isArray(recommendations.recommendedProductIds)) {
+                    recommendedProducts = await productModel.find({
+                        _id: { $in: recommendations.recommendedProductIds }
+                    })
+                        .populate('categoryId', 'name description')
+                        .populate('subcategoryId', 'name description')
+                        .map(product => ({
+                            ...product.toObject(),
+                            stockStatus: getStockStatus(product.stock)
+                        }));
+                    recommendationSource = 'ollama';
+                    console.log('Ollama recommendations generated successfully');
+                }
+            } catch (ollamaError) {
+                console.log('Ollama recommendation failed:', ollamaError.message);
             }
-        } catch (ollamaError) {
-            console.log('Ollama recommendation failed, trying NVIDIA AI...');
+        }
+
+        // Try NVIDIA AI if Ollama failed or in production
+        if ((!recommendedProducts || recommendedProducts.length === 0) && NVIDIA_API_KEY) {
             try {
+                console.log('Trying NVIDIA AI recommendations...');
                 const nvidiaRecommendations = await getNvidiaRecommendations(userData);
                 if (nvidiaRecommendations.recommendedProductIds && Array.isArray(nvidiaRecommendations.recommendedProductIds)) {
                     recommendedProducts = await productModel.find({
@@ -269,15 +274,17 @@ Return ONLY: {"recommendedProductIds": ["id1", "id2", "id3", "id4", "id5"]}`;
                             ...product.toObject(),
                             stockStatus: getStockStatus(product.stock)
                         }));
+                    recommendationSource = 'nvidia';
+                    console.log('NVIDIA AI recommendations generated successfully');
                 }
             } catch (nvidiaError) {
-                console.log('NVIDIA AI recommendation failed, falling back to simple algorithm');
+                console.log('NVIDIA AI recommendation failed:', nvidiaError.message);
             }
         }
 
-        // If both AI methods failed, use simple algorithm
+        // If both AI methods failed or not available, use smart algorithm
         if (!recommendedProducts || recommendedProducts.length === 0) {
-            console.log('Using simple recommendation algorithm');
+            console.log('Using smart recommendation algorithm');
 
             // Get products from user's favorite categories and subcategories
             const categoryProducts = allProducts.filter(product =>
@@ -320,7 +327,7 @@ Return ONLY: {"recommendedProductIds": ["id1", "id2", "id3", "id4", "id5"]}`;
                 if (b.bestseller) scoreB += 2;
 
                 // Sales bonus
-                scoreA += (a.sales || 0) * 0.1; // Normalize sales impact
+                scoreA += (a.sales || 0) * 0.1;
                 scoreB += (b.sales || 0) * 0.1;
 
                 // Stock bonus
@@ -347,12 +354,14 @@ Return ONLY: {"recommendedProductIds": ["id1", "id2", "id3", "id4", "id5"]}`;
                 ...product.toObject(),
                 stockStatus: getStockStatus(product.stock)
             }));
+            recommendationSource = 'smart_algorithm';
         }
 
         return res.json({
             success: true,
             recommendations: recommendedProducts,
-            message: 'Recommendations generated successfully'
+            message: `Recommendations generated using ${recommendationSource}`,
+            source: recommendationSource
         });
 
     } catch (error) {
