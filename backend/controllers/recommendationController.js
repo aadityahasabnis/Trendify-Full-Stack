@@ -4,45 +4,112 @@ import orderModel from '../models/orderModel.js';
 import productModel from '../models/productModel.js';
 import cartModel from '../models/cartModel.js';
 import { Category, Subcategory } from '../models/categoryModel.js';
-import OpenAI from 'openai';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 
-// Initialize OpenAI client with NVIDIA API
-const openai = new OpenAI({
-    apiKey: process.env.NVIDIA_API_KEY,
-    baseURL: 'https://integrate.api.nvidia.com/v1',
-});
+// Initialize NVIDIA AI client
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
+const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1';
+
+// Helper function to get recommendations from NVIDIA AI
+const getNvidiaRecommendations = async (userData) => {
+    if (!NVIDIA_API_KEY) {
+        console.log('NVIDIA API key not found, skipping NVIDIA recommendations');
+        throw new Error('NVIDIA API key not configured');
+    }
+
+    try {
+        console.log('Attempting NVIDIA AI recommendations...');
+        const response = await axios.post(`${NVIDIA_API_URL}/chat/completions`, {
+            model: "mixtral-8x7b-instruct-v0.1",
+            messages: [
+                {
+                    role: "system",
+                    content: "You are an expert e-commerce recommendation system. Analyze the user data and recommend products they would like."
+                },
+                {
+                    role: "user",
+                    content: `Recommend 5 products for user ${userData.name} based on:
+- Categories: ${userData.preferences.categories.join(', ')}
+- Price range: $${userData.preferences.priceRange.min}-$${userData.preferences.priceRange.max}
+- Cart items: ${userData.currentCart.length} items
+- Previous orders: ${userData.previousOrders.length} orders
+
+Return ONLY a JSON array of 5 product IDs in this format:
+{"recommendedProductIds": ["id1", "id2", "id3", "id4", "id5"]}`
+                }
+            ],
+            temperature: 0.5,
+            max_tokens: 150
+        }, {
+            headers: {
+                'Authorization': `Bearer ${NVIDIA_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 10000
+        });
+
+        console.log('NVIDIA AI response received');
+        const content = response.data.choices[0].message.content;
+
+        try {
+            const recommendations = JSON.parse(content);
+            if (!recommendations.recommendedProductIds || !Array.isArray(recommendations.recommendedProductIds)) {
+                throw new Error('Invalid response format from NVIDIA AI');
+            }
+            console.log('NVIDIA AI recommendations parsed successfully');
+            return recommendations;
+        } catch (parseError) {
+            console.error('Error parsing NVIDIA AI response:', parseError);
+            console.error('Raw response:', content);
+            throw new Error('Failed to parse NVIDIA AI response');
+        }
+    } catch (error) {
+        console.error('NVIDIA AI recommendation failed:', error.message);
+        throw error;
+    }
+};
 
 export const getPersonalizedRecommendations = async (req, res) => {
+    console.log('=== Starting recommendation process ===');
     try {
         const userId = req.user.id;
+        console.log('Step 1: User ID:', userId);
 
         // Get user data
+        console.log('Step 2: Fetching user data...');
         const user = await userModel.findById(userId);
         if (!user) {
+            console.log('User not found:', userId);
             return res.status(404).json({ success: false, message: 'User not found' });
         }
+        console.log('Step 2: User found:', user.email);
 
-        // Get user's previous orders with more details
+        // Get user's previous orders
+        console.log('Step 3: Fetching user orders...');
         const orders = await orderModel.find({ userId })
             .sort({ createdAt: -1 })
             .limit(10)
             .populate('items.productId', 'name description categoryId subcategoryId');
+        console.log('Step 3: Found orders:', orders.length);
 
-        // Get user's current cart with product details
+        // Get user's current cart
+        console.log('Step 4: Fetching user cart...');
         const cart = await cartModel.findOne({ userId })
             .populate('items.productId', 'name description categoryId subcategoryId');
         const cartItems = cart ? cart.items : {};
+        console.log('Step 4: Cart items:', Object.keys(cartItems).length);
 
-        // Get all active products with detailed information
+        // Get all active products
+        console.log('Step 5: Fetching all products...');
         const allProducts = await productModel.find({ isActive: true })
             .select('_id name description price categoryId subcategoryId image stock sales bestseller')
             .populate('categoryId', 'name description')
             .populate('subcategoryId', 'name description');
+        console.log('Step 5: Found products:', allProducts.length);
 
         // If no orders and no cart items, return random products
         if (orders.length === 0 && Object.keys(cartItems).length === 0) {
-            // Shuffle array and get first 10 products
+            console.log('No user history found, returning random products');
             const shuffled = [...allProducts].sort(() => 0.5 - Math.random());
             const randomProducts = shuffled.slice(0, 10).map(product => ({
                 ...product.toObject(),
@@ -57,6 +124,7 @@ export const getPersonalizedRecommendations = async (req, res) => {
         }
 
         // Analyze user preferences
+        console.log('Step 6: Analyzing user preferences...');
         const userPreferences = {
             categories: new Set(),
             subcategories: new Set(),
@@ -137,103 +205,161 @@ export const getPersonalizedRecommendations = async (req, res) => {
             }))
         };
 
+        // Try to get recommendations from Ollama first
+        let recommendedProducts;
+        let recommendationSource = 'simple_algorithm'; // Default source
+
         try {
-            // Check if Ollama server is running
-            try {
-                await axios.get('http://localhost:11434/api/tags', { timeout: 2000 });
-            } catch (error) {
-                console.error('Ollama server not available:', error.message);
-                throw new Error('Ollama server is not running or not accessible');
-            }
+            console.log('Step 7: Checking Ollama server...');
+            const ollamaCheck = await axios.get('http://localhost:11434/api/tags', { timeout: 2000 });
+            console.log('Step 7: Ollama server status:', {
+                status: ollamaCheck.status,
+                models: ollamaCheck.data.models
+            });
 
-            // Enhanced Ollama prompt
-            const ollamaPrompt = `You are an expert e-commerce recommendation system. Analyze the following user data and recommend 10 products that the user would be most interested in.
+            console.log('Step 8: Preparing Ollama prompt...');
+            const ollamaPrompt = `Recommend 5 products for user ${userData.name} based on:
+- Categories: ${userData.preferences.categories.join(', ')}
+- Price range: $${userData.preferences.priceRange.min}-$${userData.preferences.priceRange.max}
 
-User Profile:
-- Name: ${userData.name}
-- Email: ${userData.email}
+Return ONLY: {"recommendedProductIds": ["id1", "id2", "id3", "id4", "id5"]}`;
 
-User Preferences:
-- Favorite Categories: ${userData.preferences.categories.join(', ')}
-- Favorite Subcategories: ${userData.preferences.subcategories.join(', ')}
-- Price Range: $${userData.preferences.priceRange.min} - $${userData.preferences.priceRange.max}
-- Frequently Purchased Items: ${userData.preferences.frequentlyPurchased.length} items
-- Recently Viewed Items: ${userData.preferences.recentlyViewed.length} items
-
-Order History:
-${userData.previousOrders.map(order => `
-Order Date: ${new Date(order.date).toLocaleDateString()}
-Items: ${order.items.map(item => `${item.name} (${item.quantity}x)`).join(', ')}
-`).join('\n')}
-
-Current Cart:
-${userData.currentCart.map(item => `Product ID: ${item.productId}`).join('\n')}
-
-Available Products:
-${userData.allProducts.length} products in total
-
-Please analyze this data and recommend 10 products that:
-1. Match the user's preferred categories and subcategories
-2. Fall within their price range
-3. Complement their previous purchases
-4. Are similar to items in their cart
-5. Consider product descriptions and features
-6. Include some bestsellers and high-selling items
-7. Ensure variety in recommendations
-8. Consider stock availability
-
-Return only the product IDs in a JSON array.
-Format: {"recommendedProductIds": ["id1", "id2", ...]}`;
-
-            // Call Ollama API with enhanced prompt
+            console.log('Step 9: Calling Ollama API...');
             const ollamaResponse = await axios.post('http://localhost:11434/api/generate', {
-                model: 'llama3',
+                model: 'tinyllama',
                 prompt: ollamaPrompt,
-                stream: false
+                stream: false,
+                options: {
+                    temperature: 0.3,
+                    top_p: 0.5,
+                    num_predict: 50
+                }
             }, {
-                timeout: 10000
+                timeout: 10000,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             });
 
-            // Parse the response
             const recommendations = JSON.parse(ollamaResponse.data.response);
-
-            // Get recommended products with stock status
-            const recommendedProducts = await productModel.find({
-                _id: { $in: recommendations.recommendedProductIds }
-            })
-                .populate('categoryId', 'name description')
-                .populate('subcategoryId', 'name description')
-                .map(product => ({
-                    ...product.toObject(),
-                    stockStatus: getStockStatus(product.stock)
-                }));
-
-            res.json({
-                success: true,
-                recommendations: recommendedProducts,
-                message: 'Personalized recommendations generated successfully'
-            });
+            if (recommendations.recommendedProductIds && Array.isArray(recommendations.recommendedProductIds)) {
+                recommendedProducts = await productModel.find({
+                    _id: { $in: recommendations.recommendedProductIds }
+                })
+                    .populate('categoryId', 'name description')
+                    .populate('subcategoryId', 'name description')
+                    .map(product => ({
+                        ...product.toObject(),
+                        stockStatus: getStockStatus(product.stock)
+                    }));
+                recommendationSource = 'ollama';
+                console.log('Ollama recommendations generated successfully');
+            }
         } catch (ollamaError) {
-            console.error('Ollama API error:', ollamaError.message);
+            console.log('Ollama recommendation failed, trying NVIDIA AI...');
+            try {
+                const nvidiaRecommendations = await getNvidiaRecommendations(userData);
+                if (nvidiaRecommendations.recommendedProductIds && Array.isArray(nvidiaRecommendations.recommendedProductIds)) {
+                    recommendedProducts = await productModel.find({
+                        _id: { $in: nvidiaRecommendations.recommendedProductIds }
+                    })
+                        .populate('categoryId', 'name description')
+                        .populate('subcategoryId', 'name description')
+                        .map(product => ({
+                            ...product.toObject(),
+                            stockStatus: getStockStatus(product.stock)
+                        }));
+                }
+            } catch (nvidiaError) {
+                console.log('NVIDIA AI recommendation failed, falling back to simple algorithm');
+            }
+        }
 
-            // Return random products with appropriate message
-            const shuffled = [...allProducts].sort(() => 0.5 - Math.random());
-            const randomProducts = shuffled.slice(0, 10).map(product => ({
+        // If both AI methods failed, use simple algorithm
+        if (!recommendedProducts || recommendedProducts.length === 0) {
+            console.log('Using simple recommendation algorithm');
+
+            // Get products from user's favorite categories and subcategories
+            const categoryProducts = allProducts.filter(product =>
+                userPreferences.categories.has(product.categoryId._id.toString()) ||
+                userPreferences.subcategories.has(product.subcategoryId._id.toString())
+            );
+
+            // Get products from user's cart
+            const cartProductIds = new Set(Object.keys(cartItems));
+
+            // Sort by relevance (cart items, bestseller, sales, stock, price range)
+            const sortedProducts = categoryProducts.sort((a, b) => {
+                let scoreA = 0;
+                let scoreB = 0;
+
+                // Cart items bonus (highest priority)
+                if (cartProductIds.has(a._id.toString())) scoreA += 5;
+                if (cartProductIds.has(b._id.toString())) scoreB += 5;
+
+                // Same category as cart items
+                const cartCategories = new Set(
+                    Array.from(cartProductIds)
+                        .map(id => allProducts.find(p => p._id.toString() === id)?.categoryId._id.toString())
+                        .filter(Boolean)
+                );
+                if (cartCategories.has(a.categoryId._id.toString())) scoreA += 3;
+                if (cartCategories.has(b.categoryId._id.toString())) scoreB += 3;
+
+                // Same subcategory as cart items
+                const cartSubcategories = new Set(
+                    Array.from(cartProductIds)
+                        .map(id => allProducts.find(p => p._id.toString() === id)?.subcategoryId._id.toString())
+                        .filter(Boolean)
+                );
+                if (cartSubcategories.has(a.subcategoryId._id.toString())) scoreA += 2;
+                if (cartSubcategories.has(b.subcategoryId._id.toString())) scoreB += 2;
+
+                // Bestseller bonus
+                if (a.bestseller) scoreA += 2;
+                if (b.bestseller) scoreB += 2;
+
+                // Sales bonus
+                scoreA += (a.sales || 0) * 0.1; // Normalize sales impact
+                scoreB += (b.sales || 0) * 0.1;
+
+                // Stock bonus
+                if (a.stock > 0) scoreA += 1;
+                if (b.stock > 0) scoreB += 1;
+
+                // Price range bonus
+                const priceRange = userPreferences.priceRange;
+                const priceA = a.price;
+                const priceB = b.price;
+
+                if (priceA >= priceRange.min && priceA <= priceRange.max) scoreA += 2;
+                if (priceB >= priceRange.min && priceB <= priceRange.max) scoreB += 2;
+
+                // Recently viewed bonus
+                if (userPreferences.recentlyViewed.has(a._id.toString())) scoreA += 1;
+                if (userPreferences.recentlyViewed.has(b._id.toString())) scoreB += 1;
+
+                return scoreB - scoreA;
+            });
+
+            // Take top 10 products
+            recommendedProducts = sortedProducts.slice(0, 10).map(product => ({
                 ...product.toObject(),
                 stockStatus: getStockStatus(product.stock)
             }));
-
-            res.json({
-                success: true,
-                recommendations: randomProducts,
-                message: ollamaError.message === 'Ollama server is not running or not accessible'
-                    ? 'Ollama server is not available, showing random products'
-                    : 'Failed to generate personalized recommendations, showing random products'
-            });
         }
 
+        return res.json({
+            success: true,
+            recommendations: recommendedProducts,
+            message: 'Recommendations generated successfully'
+        });
+
     } catch (error) {
-        console.error('Error getting recommendations:', error);
+        console.error('Recommendation process failed:', {
+            error: error.message,
+            stack: error.stack
+        });
         res.status(500).json({
             success: false,
             message: 'Error getting recommendations',
@@ -338,26 +464,17 @@ ${JSON.stringify(productData.allProducts, null, 2)}
 
 Return a list of 6 most related product IDs in order of relevance. Format the response as a JSON array of product IDs only.`;
 
-        // Get AI analysis
-        const completion = await openai.chat.completions.create({
-            model: "nvidia/llama-3.1-nemotron-70b-instruct",
-            messages: [
-                {
-                    role: "system",
-                    content: "You are a product recommendation system. Analyze product data and return related product IDs in JSON format."
-                },
-                {
-                    role: "user",
-                    content: prompt
-                }
-            ],
-            temperature: 0.7,
-            max_tokens: 500,
-            response_format: { type: "json_object" }
+        // Get AI analysis from Ollama
+        const ollamaResponse = await axios.post('http://localhost:11434/api/generate', {
+            model: 'llama3',
+            prompt: prompt,
+            stream: false
+        }, {
+            timeout: 10000
         });
 
         // Parse the response
-        const response = JSON.parse(completion.choices[0].message.content);
+        const response = JSON.parse(ollamaResponse.data.response);
         return response.relatedProducts || [];
     } catch (error) {
         console.error('Error analyzing related products:', error);
@@ -432,4 +549,49 @@ export const getRelatedProducts = asyncHandler(async (req, res) => {
             error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
         });
     }
-}); 
+});
+
+// Test Ollama connection
+export const testOllamaConnection = async (req, res) => {
+    try {
+        console.log('Testing Ollama connection...');
+
+        // Check if Ollama server is running
+        const tagsResponse = await axios.get('http://localhost:11434/api/tags', { timeout: 2000 });
+        console.log('Ollama tags response:', tagsResponse.data);
+
+        // Test model generation
+        const generateResponse = await axios.post('http://localhost:11434/api/generate', {
+            model: 'llama3',
+            prompt: 'Hello, are you working?',
+            stream: false
+        }, {
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        console.log('Ollama generate response:', generateResponse.data);
+
+        res.json({
+            success: true,
+            message: 'Ollama connection successful',
+            tags: tagsResponse.data,
+            generate: generateResponse.data
+        });
+    } catch (error) {
+        console.error('Ollama test failed:', {
+            message: error.message,
+            code: error.code,
+            response: error.response?.data || 'No response data',
+            stack: error.stack
+        });
+
+        res.status(500).json({
+            success: false,
+            message: 'Ollama connection failed',
+            error: error.message
+        });
+    }
+}; 

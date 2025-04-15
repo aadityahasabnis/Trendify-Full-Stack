@@ -14,7 +14,7 @@ import categoryRouter from './routes/categoryRoute.js';
 import adminRouter from './routes/adminRoute.js';
 import inventoryRouter from './routes/inventoryRoute.js';
 import emailRouter from './routes/emailRoute.js';
-import recommendationRoute from './routes/recommendationRoute.js';
+import recommendationRoute from './routes/recommendationRoutes.js';
 import chatbotRoute from './routes/chatbotRoute.js';
 import mongoose from 'mongoose';
 

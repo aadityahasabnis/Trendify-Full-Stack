@@ -84,7 +84,15 @@ const placeOrder = async (req, res) => {
 // Placing orders using Stripe method
 const placeStripe = async (req, res) => {
     try {
-        const { userId, items, amount, address } = req.body;
+        const token = req.headers.token;
+
+        if (!token) {
+            return res.status(401).json({ success: false, message: "No token provided" });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const { items, amount, address } = req.body;
         const { origin } = req.headers;
 
         // Check stock availability without reducing it yet
