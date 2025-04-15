@@ -256,8 +256,16 @@ Return ONLY: {"recommendedProductIds": ["id1", "id2", "id3", "id4", "id5"]}`;
                 console.log('Ollama recommendations generated successfully');
             }
         } catch (ollamaError) {
-            console.log('Ollama recommendation failed, trying NVIDIA AI...');
+            console.log('Ollama recommendation failed:', ollamaError.message);
+            console.log('Attempting NVIDIA AI recommendations...');
+
             try {
+                if (!NVIDIA_API_KEY) {
+                    console.error('NVIDIA API key not found, skipping NVIDIA recommendations');
+                    throw new Error('NVIDIA API key not configured');
+                }
+
+                console.log('Making NVIDIA AI API call...');
                 const completion = await axios.post(`${NVIDIA_API_URL}/chat/completions`, {
                     model: "mixtral-8x7b-instruct-v0.1",
                     messages: [
@@ -287,7 +295,9 @@ Return ONLY a JSON array of 5 product IDs in this format:
                     timeout: 10000
                 });
 
+                console.log('NVIDIA AI response received');
                 const recommendations = JSON.parse(completion.data.choices[0].message.content);
+
                 if (recommendations.recommendedProductIds && Array.isArray(recommendations.recommendedProductIds)) {
                     recommendedProducts = await productModel.find({
                         _id: { $in: recommendations.recommendedProductIds }
@@ -309,7 +319,8 @@ Return ONLY a JSON array of 5 product IDs in this format:
 
         // If both AI methods failed, use smart algorithm
         if (!recommendedProducts || recommendedProducts.length === 0) {
-            console.log('Using smart recommendation algorithm');
+            console.log('Both AI methods failed, using smart recommendation algorithm');
+            recommendationSource = 'smart_algorithm';
 
             // Get products from user's favorite categories and subcategories
             const categoryProducts = allProducts.filter(product =>
@@ -379,7 +390,6 @@ Return ONLY a JSON array of 5 product IDs in this format:
                 ...product.toObject(),
                 stockStatus: getStockStatus(product.stock)
             }));
-            recommendationSource = 'smart_algorithm';
         }
 
         return res.json({
