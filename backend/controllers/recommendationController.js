@@ -220,11 +220,13 @@ export const getPersonalizedRecommendations = async (req, res) => {
             const ollamaPrompt = `Recommend 5 products for user ${userData.name} based on:
 - Categories: ${userData.preferences.categories.join(', ')}
 - Price range: $${userData.preferences.priceRange.min}-$${userData.preferences.priceRange.max}
+- Cart items: ${userData.currentCart.length} items
+- Previous orders: ${userData.previousOrders.length} orders
 
 Return ONLY: {"recommendedProductIds": ["id1", "id2", "id3", "id4", "id5"]}`;
 
             const ollamaResponse = await axios.post('http://localhost:11434/api/generate', {
-                model: 'tinyllama',
+                model: 'llama3',
                 prompt: ollamaPrompt,
                 stream: false,
                 options: {
@@ -256,10 +258,39 @@ Return ONLY: {"recommendedProductIds": ["id1", "id2", "id3", "id4", "id5"]}`;
         } catch (ollamaError) {
             console.log('Ollama recommendation failed, trying NVIDIA AI...');
             try {
-                const nvidiaRecommendations = await getNvidiaRecommendations(userData);
-                if (nvidiaRecommendations.recommendedProductIds && Array.isArray(nvidiaRecommendations.recommendedProductIds)) {
+                const completion = await axios.post(`${NVIDIA_API_URL}/chat/completions`, {
+                    model: "mixtral-8x7b-instruct-v0.1",
+                    messages: [
+                        {
+                            role: "system",
+                            content: "You are an expert e-commerce recommendation system. Analyze the user data and recommend products they would like."
+                        },
+                        {
+                            role: "user",
+                            content: `Recommend 5 products for user ${userData.name} based on:
+- Categories: ${userData.preferences.categories.join(', ')}
+- Price range: $${userData.preferences.priceRange.min}-$${userData.preferences.priceRange.max}
+- Cart items: ${userData.currentCart.length} items
+- Previous orders: ${userData.previousOrders.length} orders
+
+Return ONLY a JSON array of 5 product IDs in this format:
+{"recommendedProductIds": ["id1", "id2", "id3", "id4", "id5"]}`
+                        }
+                    ],
+                    temperature: 0.5,
+                    max_tokens: 150
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${NVIDIA_API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+
+                const recommendations = JSON.parse(completion.data.choices[0].message.content);
+                if (recommendations.recommendedProductIds && Array.isArray(recommendations.recommendedProductIds)) {
                     recommendedProducts = await productModel.find({
-                        _id: { $in: nvidiaRecommendations.recommendedProductIds }
+                        _id: { $in: recommendations.recommendedProductIds }
                     })
                         .populate('categoryId', 'name description')
                         .populate('subcategoryId', 'name description')
@@ -271,7 +302,8 @@ Return ONLY: {"recommendedProductIds": ["id1", "id2", "id3", "id4", "id5"]}`;
                     console.log('NVIDIA AI recommendations generated successfully');
                 }
             } catch (nvidiaError) {
-                console.log('NVIDIA AI recommendation failed:', nvidiaError.message);
+                console.error('NVIDIA AI recommendation failed:', nvidiaError.message);
+                // Don't throw here, let it fall through to the smart algorithm
             }
         }
 
