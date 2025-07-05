@@ -26,7 +26,7 @@ app.use(express.json());
 
 const allowedOrigins = [
 
-    'trendify.aadityahasabnis.site',
+    'https://trendify.aadityahasabnis.site',
     'http://localhost:5174',
     'http://localhost:5173',
     'https://trendify-admin-rose.vercel.app',
